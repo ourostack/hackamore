@@ -248,6 +248,22 @@ test('do: app-protected for a configured app, a consent we did not raise, and Sy
   assert.match(r.reply.message, /security/);
 });
 
+test('do: a caller\'s promptVerdict lets its own prompts be answered while a person is active, and only that button', async () => {
+  const mk = () => world({ idle: 4, windows: [{ owner: 'UserNotificationCenter', layer: 8, pid: UNC }], trees: { [UNC]: uncWindow('"Example Tool" wants access to your Documents folder.') } });
+  const promptVerdict = () => ({ answer: 'Allow', why: 'policy' });
+  let w = mk();
+  let r = await U.act('click', { element: 'alert > button[Allow]' }, { ...w.opts, promptVerdict });
+  assert.notEqual(r.reply.refused, 'person-active', JSON.stringify(r.reply));
+  assert.ok(w.E.calls.some(([op, a]) => op === 'perform' && a.action === 'AXPress' && a.pid === UNC), 'pressed through AX, no pointer');
+  w = mk();
+  r = await U.act('click', { element: "alert > button[Don't Allow]" }, { ...w.opts, promptVerdict });
+  assert.equal(r.reply.refused, 'app-protected');
+  assert.match(r.reply.message, /agents answer "Allow" \(policy\)/);
+  w = mk();
+  r = await U.act('click', { element: 'alert > button[Allow]' }, w.opts);
+  assert.equal(r.reply.refused, 'app-protected', 'without a policy, a prompt naming no known tool is not answered');
+});
+
 test('do: click presses through AX at the resolved path, runs the gate protocol, and returns the settled screen', async () => {
   const w = world();
   let n = 0;
