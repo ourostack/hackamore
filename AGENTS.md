@@ -6,7 +6,7 @@ Follow ourostack's shared rule, [every PR merges fast](https://github.com/ourost
 
 ## What this repo is
 
-hackamore: the engine that drives any Mac app from outside through its accessibility tree (and, where there is no tree, through pixels), speaking the [Reins](https://github.com/ourostack/ouro-ui-apple/blob/main/PROTOCOL.md) protocol. A Swift engine (`swift/ax-engine.swift`), a small app that holds the Accessibility grant (`src/agent.mjs`), and a Node CLI and library (`bin/`, `src/`).
+hackamore: the engine that drives any Mac app from outside through its accessibility tree (and, where there is no tree, through pixels), speaking the [Reins](https://github.com/ourostack/ouro-ui-apple/blob/main/docs/ouro-reins/PROTOCOL.md) protocol. A Swift engine (`swift/ax-engine.swift`), a small app that holds the Accessibility grant (`src/agent.mjs`), and a Node CLI and library (`bin/`, `src/`).
 
 - **Generic only.** Nothing here may name a person's machines, accounts, tenants or a company's internal tools. What an owner adds (extra protected apps, Keychain item names, prompt decisions, their own tools) goes in the owner's `config.json` (`src/config.mjs`), never in a default.
 - **Transports belong to the caller.** hackamore carries a request as one JSON line (`hackamore wire`); `--via` runs any command that does. Don't add a transport for one team's network or bus; point `--via` at it.

@@ -83,14 +83,22 @@ export function identity(keychain = process.env.HACKAMORE_SIGNING_KEYCHAIN || nu
   return (String(r.stdout).match(/"(Developer ID Application: [^"]+\((\w+)\))"/) || [])[1] || null;
 }
 
-// Apple's notary service, then the ticket stapled to the app. Credentials come from the environment, never argv logs.
+// Apple's notary service, then the ticket stapled to the app. Credentials come from the environment, never a log:
+// an App Store Connect API key (APPLE_API_KEY_PATH, APPLE_API_KEY_ID, APPLE_API_ISSUER) or an Apple ID
+// (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID).
+export function notaryAuth(env = process.env) {
+  if (env.APPLE_API_KEY_PATH && env.APPLE_API_KEY_ID && env.APPLE_API_ISSUER) return ['--key', env.APPLE_API_KEY_PATH, '--key-id', env.APPLE_API_KEY_ID, '--issuer', env.APPLE_API_ISSUER];
+  if (env.APPLE_ID && env.APPLE_APP_SPECIFIC_PASSWORD && env.APPLE_TEAM_ID) return ['--apple-id', env.APPLE_ID, '--team-id', env.APPLE_TEAM_ID, '--password', env.APPLE_APP_SPECIFIC_PASSWORD];
+  return null;
+}
+
 export function notarize(app, { run = sh, env = process.env } = {}) {
-  const need = ['APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID'].filter((k) => !env[k]);
-  if (need.length) throw new Error(`notarization needs ${need.join(', ')} in the environment`);
+  const auth = notaryAuth(env);
+  if (!auth) throw new Error('notarization needs APPLE_API_KEY_PATH, APPLE_API_KEY_ID and APPLE_API_ISSUER, or APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, in the environment');
   const zip = `${app}.zip`;
   const z = run('/usr/bin/ditto', ['-c', '-k', '--keepParent', app, zip]);
   if (z.status !== 0) throw new Error(`ditto: ${String(z.stderr).slice(0, 300)}`);
-  const n = run('/usr/bin/xcrun', ['notarytool', 'submit', zip, '--apple-id', env.APPLE_ID, '--team-id', env.APPLE_TEAM_ID, '--password', env.APPLE_APP_SPECIFIC_PASSWORD, '--wait', '--output-format', 'json'], { timeout: 1800000 });
+  const n = run('/usr/bin/xcrun', ['notarytool', 'submit', zip, ...auth, '--wait', '--output-format', 'json'], { timeout: 1800000 });
   let j = {};
   try { j = JSON.parse(n.stdout); } catch { /* reported below */ }
   if (j.status !== 'Accepted') throw new Error(`notarization ${j.status || 'failed'}: ${String(n.stderr || n.stdout).slice(0, 400)}`);

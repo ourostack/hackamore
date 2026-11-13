@@ -26,7 +26,7 @@ Our agents live on a Mac mini. Every few days one of them needed something done 
 
 That's work that shouldn't need a model. A window already knows what's in it: macOS's accessibility tree has every button, field and label, with its name and where it is. hackamore reads it and hands an agent the screen as data, with the actions that make sense on that screen right now, each with a schema narrowed to what is actually there. The agent says `click "Allow"`. hackamore checks that "Allow" is on the screen, that nobody is using the Mac and that the app isn't one it must leave alone, then presses it and answers with the screen after.
 
-It speaks [Reins](https://github.com/ourostack/ouro-ui-apple/blob/main/PROTOCOL.md), the protocol our own apps use to let agents drive them. An app built with [Ouro UI](https://github.com/ourostack/ouro-ui) hands its reins to the agent. A hackamore is a bridle with no bit: you steer without putting anything in the horse's mouth. hackamore steers apps that were never built for it.
+It speaks [Reins](https://github.com/ourostack/ouro-ui-apple/blob/main/docs/ouro-reins/PROTOCOL.md), the protocol our own apps use to let agents drive them. An app built with [Ouro UI](https://github.com/ourostack/ouro-ui) hands its reins to the agent. A hackamore is a bridle with no bit: you steer without putting anything in the horse's mouth. hackamore steers apps that were never built for it.
 
 ## The contract
 
@@ -73,7 +73,7 @@ The config file is optional JSON: `protected`, `secrets`, `prompt_decisions`, `c
 
 ## Where it sits
 
-- **Reins** ([ouro-ui-apple](https://github.com/ourostack/ouro-ui-apple/blob/main/PROTOCOL.md)) is the protocol: the screen as state, actions with schemas, refusals before anything runs. Apps built with Ouro UI implement it from the inside; hackamore implements it from the outside for any app.
+- **Reins** ([ouro-ui-apple](https://github.com/ourostack/ouro-ui-apple/blob/main/docs/ouro-reins/PROTOCOL.md)) is the protocol: the screen as state, actions with schemas, refusals before anything runs. Apps built with Ouro UI implement it from the inside; hackamore implements it from the outside for any app.
 - **[housesitter](https://github.com/ourostack/housesitter)** keeps an always-on Mac alive and gives agents a KVM's eyes and hands before login. hackamore uses it as the pixel layer's hands, and housesitter uses hackamore's schema check.
 - **Prior art we looked at:** [Peekaboo](https://peekaboo.sh/) (a tool belt for a model; its capture and permission handling are mature), [mcp-server-macos-use](https://github.com/mediar-ai/mcp-server-macos-use) (closest in shape; no narrowed schemas, refusals, gate, batch or diffs), [MacOS-MCP](https://github.com/CursorTouch/MacOS-MCP) (Python, a process per call) and Apple's XCUITest (needs an Xcode test runner, about 900 times slower than OuroReins' own measure for one journey).
 
