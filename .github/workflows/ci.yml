@@ -1,0 +1,46 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  node:
+    name: node ${{ matrix.node }} on macOS
+    runs-on: macos-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+      # compiles the Swift engine and the agent app for real, then runs every test
+      - run: node --test test/*.test.mjs
+      - run: node bin/hackamore.mjs help --json > /dev/null
+  portable:
+    name: logic on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      # the pure parts (pruning, addresses, schemas, diffs, the pixel layer) run anywhere; the engine tests skip off macOS
+      - run: node --test test/*.test.mjs
+  ci:
+    name: ci
+    if: always()
+    needs: [node, portable]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: test "${{ needs.node.result }}" = success && test "${{ needs.portable.result }}" = success

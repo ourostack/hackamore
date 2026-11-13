@@ -1,0 +1,82 @@
+name: Release
+# Run it from the Actions tab with a tag (v0.1.0), or push a v* tag. It builds the Ouro Reins Agent app, signs it with the
+# ourostack organisation's Developer ID and notarizes it when those secrets reach this repository, and otherwise ships an
+# ad-hoc build and says so in the release notes (an ad-hoc build loses the Accessibility grant whenever the engine changes).
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.1.0
+        required: true
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  agent:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      CERT_B64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+      CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+      CERT_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node --test test/*.test.mjs
+      - name: Decide how to sign
+        id: sign
+        run: |
+          if [ -n "$CERT_B64" ] && [ -n "$CERT_PASSWORD" ] && [ -n "$CERT_IDENTITY" ] && [ -n "$APPLE_ID" ] && [ -n "$APPLE_APP_SPECIFIC_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+            echo "mode=developer-id" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=ad-hoc" >> "$GITHUB_OUTPUT"
+            echo "::warning::The Apple signing secrets don't reach this repository: shipping an ad-hoc build."
+          fi
+      - name: Import the Developer ID certificate
+        if: steps.sign.outputs.mode == 'developer-id'
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          PASS="$(uuidgen)"
+          security create-keychain -p "$PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$PASS" "$KEYCHAIN"
+          echo "$CERT_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          echo "HACKAMORE_SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "HACKAMORE_SIGN_IDENTITY=$CERT_IDENTITY" >> "$GITHUB_ENV"
+          echo "HACKAMORE_TEAM=$APPLE_TEAM_ID" >> "$GITHUB_ENV"
+      - name: Build the agent
+        run: |
+          if [ "${{ steps.sign.outputs.mode }}" = developer-id ]; then
+            node bin/hackamore.mjs agent build --developer-id --notarize
+          else
+            node bin/hackamore.mjs agent build --ad-hoc
+          fi
+          cat dist/ouro-reins-agent.json
+      - name: Publish the release
+        run: |
+          MODE="${{ steps.sign.outputs.mode }}"
+          if [ "$MODE" = developer-id ]; then
+            NOTES="Signed with the ourostack Developer ID and notarized. macOS keeps the Accessibility grant across updates."
+          else
+            NOTES="UNSIGNED (ad-hoc) build: macOS drops the Accessibility grant each time the engine changes, so grant it again after every update. Signing is tracked in the repository's issues."
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/ouro-reins-agent.tgz dist/ouro-reins-agent.json --clobber
+          else
+            gh release create "$TAG" dist/ouro-reins-agent.tgz dist/ouro-reins-agent.json --title "$TAG" --notes "$NOTES"
+          fi

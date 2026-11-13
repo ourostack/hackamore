@@ -1,0 +1,15 @@
+# hackamore
+
+> Drives any Mac app like an API through its accessibility tree: the screen as state (Reins shape), the controls as actions with schemas narrowed to what is on screen, refusals before anything moves. A resident signed helper app holds the Accessibility grant; a pixel layer (screenshot, Apple Vision OCR, clicks and keys) covers where there is no tree. No model in the loop.
+
+## Start
+- [README](README.md): what it does, the rules it won't break, what's verified
+- `hackamore help --json`: every command, flag and exit code, as data
+- `hackamore doctor`: what this Mac has and the next step
+
+## For agents driving a Mac
+- `hackamore ls [app]` reads the screen and lists the actions available now, each with the exact values it accepts. Then `hackamore do <action> '<json>'`, or `hackamore batch '<json array>'` with an `until` per step to wait for a result in the same call.
+- Refusals are JSON with `code`, `thing`, `problem` and `fix`; exit 0 ok, 1 failed, 2 refused. Read the fix; don't retry blindly.
+- Never type a password: `type_secret` takes a Keychain item name the owner allowed. A refused `person-active` means someone is using the Mac: wait.
+- Another Mac: `--via '<command that runs hackamore wire there>'`. A KVM's pixels: `--kvm <name>` (housesitter).
+- Library: `import { look, act, batch } from '@ouro.bot/hackamore'`; `@ouro.bot/hackamore/schema` is the Reins schema check.

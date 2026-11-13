@@ -1,0 +1,24 @@
+{
+  "name": "@ouro.bot/hackamore",
+  "version": "0.1.0",
+  "description": "Drive any Mac app like an API through its accessibility tree: its screen as state, its controls as actions, refusals before anything moves. For agents, with no model in the loop.",
+  "type": "module",
+  "bin": { "hackamore": "bin/hackamore.mjs" },
+  "exports": {
+    ".": "./src/index.mjs",
+    "./schema": "./src/validate.mjs",
+    "./gate": "./src/gate.mjs",
+    "./pixels": "./src/pixels.mjs"
+  },
+  "files": ["bin", "src", "swift", "llms.txt", "README.md", "LICENSE"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": ["mac", "macos", "accessibility", "ax", "agents", "computer-use", "reins", "automation", "ui-automation"],
+  "homepage": "https://github.com/ourostack/hackamore",
+  "repository": { "type": "git", "url": "git+https://github.com/ourostack/hackamore.git" },
+  "bugs": "https://github.com/ourostack/hackamore/issues",
+  "license": "MIT",
+  "author": "Ari Mendelow"
+}
