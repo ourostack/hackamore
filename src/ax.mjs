@@ -784,10 +784,15 @@ export async function act(action, input = {}, opts = {}) {
   if (f.error && usable) { L = await fresh(); f = resolveEl(); }
   if (f.error) return refuse('input-invalid', `$.element: ${f.error}`, { path: '$.element' });
   let el = f.e;
-    if (el?.alert) {
+  // A caller that has its own policy for the prompts it raised (opts.promptVerdict) may let a click run while a
+  // person is active: it is a press, and the policy answers only what it would answer by itself.
+  let promptClass = false;
+  if (el?.alert) {
     const decisions = opts.decisions ?? promptDecisionsFor();
     const ok = alertClickAllowed({ alertText: el.alert.text, button: el.label, hasSecureField: el.alert.hasSecure, owner: el.alert.owner, decisions });
-    if (action !== 'click' || !ok.ok) return refuse('app-protected', `alert: ${ok.why || 'only clicks answer an alert'}`);
+    const pv = opts.promptVerdict ? opts.promptVerdict({ owner: el.alert.owner, text: el.alert.text, buttons: L.elements.filter((e) => e.alert && e.alert.text === el.alert.text && e.role === 'button').map((e) => e.label), hasSecure: el.alert.hasSecure, decisions }) : null;
+    promptClass = action === 'click' && Boolean(pv) && pv.answer === el.label;
+    if (action !== 'click' || !(ok.ok || promptClass)) return refuse('app-protected', `alert: ${pv?.answer && pv.answer !== el.label ? `for this prompt agents answer "${pv.answer}" (${pv.why})` : ok.why || pv?.why || 'only clicks answer an alert'}`);
   } else if (L.prot && !['open_app', 'activate'].includes(action)) {
     return refuse('app-protected', `${L.prot.app}: ${L.prot.why}`);
   }
@@ -795,7 +800,7 @@ export async function act(action, input = {}, opts = {}) {
   let pid = el?.at?.pid || L.target?.pid;
   const background = L.target && L.front && L.target.pid !== L.front.pid;
   const BG_PERFORM = [...PRESSY, 'AXCancel', 'AXIncrement', 'AXDecrement'];
-  const bgClass = (background && !el?.alert && (
+  const bgClass = promptClass || (background && !el?.alert && (
     (action === 'click' && el && input.button !== 'right' && ((input.count || 1) === 1 || (input.count === 2 && (el.actions || []).includes('AXOpen'))))
     || (action === 'perform' && BG_PERFORM.includes(input.action))
     || (action === 'set_value' && el && el.role !== 'securetextfield')));
@@ -1059,7 +1064,8 @@ export async function placeWindows(E, bundle, saved, { sleep = (ms) => new Promi
 
 // One request as a transport carries it: { cmd: ls|do|batch|gate|focus|windows|place, ... } in, { exit, stdout } out,
 // where stdout is one JSON line { code, reply, screen, ms }. `screen` is { rev, view } or { rev, diff } against `since`.
-export async function busHandler(a = {}, { me = null } = {}) {
+// `ctx` is passed on to look, act and batch: a caller's own hooks (promptVerdict, decisions) or fakes.
+export async function busHandler(a = {}, { me = null, ...ctx } = {}) {
   const t0 = Date.now();
   const out = (code, reply, view) => ({ exit: code, stdout: JSON.stringify({ code, reply, screen: view ? wireScreen(view, a.since) : null, ms: Date.now() - t0 }) + '\n' });
   try {
@@ -1077,7 +1083,7 @@ export async function busHandler(a = {}, { me = null } = {}) {
     if (a.cmd === 'focus') { const r = await focusFacts(await engine()); return out(0, r); }
     if (a.cmd === 'windows') { const r = await appWindows(await engine(), a.bundle); return out(r.ok ? 0 : 1, r); }
     if (a.cmd === 'place') { const r = await placeWindows(await engine(), a.bundle, a.windows || []); return out(r.ok ? 0 : 1, r); }
-    const common = { app: a.app, idleMin: a.idle || 90, me, host: a.host || me || 'local', ours: a.ours ?? null };
+    const common = { app: a.app, idleMin: a.idle || 90, me, host: a.host || me || 'local', ours: a.ours ?? null, ...ctx };
     if (a.cmd === 'ls') { const L = await look({ ...common, menus: a.menus !== false }); return out(0, { ok: true }, L.view); }
     if (a.cmd === 'do') { const r = await act(a.action, a.input || {}, common); return out(r.code, r.reply, r.L?.view); }
     if (a.cmd === 'batch') { const r = await batch(a.steps || [], common); return out(r.code, r.reply, r.L?.view); }
@@ -1182,19 +1188,20 @@ export function parseUiArgs(args) {
 
 // Pixel layer from a KVM, through housesitter: the pixels and keys go there, the gate and the focus checks still come
 // from the Mac through the transport.
-async function viaKvm(host, cmd, p, transport) {
+async function viaKvm(host, cmd, p, transport, deps = {}) {
   try {
     const P = await import('./pixels.mjs');
     const G0 = await import('./gate.mjs');
-    const drv = await P.housesitterDriver(p.kvm);
+    const drv = deps.pixelDriver ? await deps.pixelDriver(host, p) : await P.housesitterDriver(p.kvm);
+    if (!drv) return null;
     // OCR needs no permission, so a resident agent here does it with Vision already loaded; a fresh engine pays Vision's first load.
     const E = await engine();
     const ocr = P.engineOcr(E);
     // Secrets for a Mac driven through its KVM are read here, on the controller, from its own Keychain, and go to the
     // KVM's keyboard: never argv, never the transport.
-    const secrets = secretsFor();
+    const secrets = deps.secrets ?? secretsFor();
     const sec = { secrets, secret: keychainSecret, settleMs: Number(process.env.HACKAMORE_PIXEL_SETTLE_MS || 250) };
-    const gateFor = P.remoteGate(transport, host);
+    const gateFor = deps.gateFor ? deps.gateFor(host) : P.remoteGate(transport, host);
     if (cmd === 'ls') {
       const [g, v] = await Promise.all([gateFor(), P.pixelLook({ driver: drv, ocr, host, gate: null, secrets })]);
       if (g) v.view.context.person = { active: !G0.verdict(g).open, idle_s: g.idle ?? null, why: G0.verdict(g).why };
@@ -1227,7 +1234,8 @@ export async function cmdUiReins(sub, args, deps = {}) {
   const transport = deps.transport || (p.via ? commandTransport(p.via) : localTransport);
   const host = p.as || (p.via ? `via-${createHash('sha256').update(p.via).digest('hex').slice(0, 8)}` : 'local');
   const remote = transport !== localTransport;
-  const remotePixels = Boolean(p.kvm);
+  // A caller with its own pixel driver (deps.pixelDriver, which may answer null: no route) drives remote pixels too.
+  const remotePixels = Boolean(p.kvm || (deps.pixelDriver && remote && p.layer === 'pixels'));
   const call = deps.call || ((h, a) => callUi(h, a, { transport }));
   const print = deps.print || ((o) => console.log(JSON.stringify(o, null, 2)));
   const parse = (txt, what) => { try { return { v: JSON.parse(txt) }; } catch { return { err: { ok: false, refused: 'input-invalid', path: '$', message: `$: ${what} isn't JSON: ${String(txt).slice(0, 80)}` } }; } };
@@ -1243,19 +1251,19 @@ export async function cmdUiReins(sub, args, deps = {}) {
   const once = async () => {
     let x = null;
     if (sub === 'ls') {
-      x = remotePixels ? await viaKvm(host, 'ls', p, transport) : null;
+      x = remotePixels ? await viaKvm(host, 'ls', p, transport, deps) : null;
       if (!x) x = await call(host, { cmd: 'ls', app: a1 || p.app, menus: p.menus, layer: p.layer === 'pixels' ? 'pixels' : 'ax' });
     } else if (sub === 'do') {
-      x = remotePixels ? await viaKvm(host, 'do', { ...p, action: a1, input: inp.v }, transport) : null;
+      x = remotePixels ? await viaKvm(host, 'do', { ...p, action: a1, input: inp.v }, transport, deps) : null;
       if (!x) x = await call(host, { cmd: 'do', action: a1, input: inp.v, app: p.app, idle: p.idle, layer: p.layer === 'pixels' ? 'pixels' : 'ax' });
     } else {
-      x = remotePixels ? await viaKvm(host, 'batch', { ...p, steps: st.v }, transport) : null;
+      x = remotePixels ? await viaKvm(host, 'batch', { ...p, steps: st.v }, transport, deps) : null;
       if (!x) x = await call(host, { cmd: 'batch', steps: st.v, app: p.app, idle: p.idle });
     }
     return x;
   };
   let r = await once();
-  if (sub === 'ls' && p.layer === 'auto' && r.view?.state?.layer === 'none' && p.kvm) { const k = await viaKvm(host, 'ls', p, transport).catch(() => null); if (k) r = k; }
+  if (sub === 'ls' && p.layer === 'auto' && r.view?.state?.layer === 'none' && (p.kvm || (deps.pixelDriver && remote))) { const k = await viaKvm(host, 'ls', p, transport, deps).catch(() => null); if (k) r = k; }
   // Locked: nothing ran. The caller may unlock it (deps.onLocked) and have it tried once more. Only on this path, so
   // an unlocked Mac pays no extra round trip.
   if (sub !== 'ls' && r?.reply?.refused === 'screen-locked' && !(r.reply.steps || []).some((x) => x.ok) && deps.onLocked) {
