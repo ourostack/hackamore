@@ -8,7 +8,7 @@
 
 **Drive any Mac app like an API: its screen as state, its controls as actions, refusals before anything moves. For agents, with no model in the loop.**
 
-**Status:** experimental. The engine ran live on our Mac mini and laptop (Finder, System Settings, Calculator through the accessibility tree; dialogs and the lock screen through a KVM's pixels). The tests here use fakes and compile the real Swift engine; [What's verified](#whats-verified) says which is which. Releases may be unsigned: see [Signing](#signing).
+**Status:** experimental. The engine ran live on our Mac mini and laptop (Finder, System Settings, Calculator through the accessibility tree; dialogs and the lock screen through a KVM's pixels). The tests here use fakes and compile the real Swift engine; [What's verified](#whats-verified) says which is which. Releases are signed and notarized from v0.1.2: see [Signing](#signing).
 
 [Try it](#try-it) · [Why I built it](#why-i-built-it) · [The contract](#the-contract) · [Two ways in](#two-ways-in-the-tree-and-the-pixels) · [Another Mac](#another-mac) · [The rules it won't break](#the-rules-it-wont-break) · [Where it sits](#where-it-sits) · [What's verified](#whats-verified) · [More from Ouro](https://github.com/ourostack)
 
@@ -79,7 +79,7 @@ The config file is optional JSON: `protected`, `secrets`, `prompt_decisions`, `c
 
 ## Signing
 
-The agent app is built by this repository's release workflow. With the ourostack Developer ID secrets it is signed and notarized, and macOS keeps the Accessibility grant when the app updates. Without them the release is **ad-hoc signed**, and its notes say `UNSIGNED`: macOS drops the grant each time the engine changes, so grant it again after every update. `hackamore agent install` installs the latest release (or a local build) and only accepts our team's signature or the manifest's exact hash.
+The agent app is built by this repository's release workflow. With the Developer ID secrets (set on this repository) it is signed and notarized, and macOS keeps the Accessibility grant when the app updates, because the grant follows the signing identity, not the file. Releases from v0.1.2 on are built that way in CI. v0.1.0 is ad-hoc; v0.1.1's agent was signed and notarized by hand. Without the secrets the release is **ad-hoc signed**, and its notes say `UNSIGNED`: macOS drops the grant each time the engine changes, so grant it again after every update. `hackamore agent install` installs the latest release (or a local build) and only accepts our team's signature or the manifest's exact hash.
 
 ## What's verified
 
@@ -88,9 +88,9 @@ The agent app is built by this repository's release workflow. With the ourostack
 | Pruning, addresses, narrowed schemas, refusals, gate, settle, batch, diffs, the pixel layer | **Fakes**, in CI on every pull request (a fake engine, gate and pixel driver) |
 | The Swift engine builds and answers `trust` and `apps`; the agent app builds and bundles | **Real**, in CI on macOS |
 | `ls`, `do` and `batch` against Finder, System Settings and Calculator | **Live on our Mac mini**, before the engine moved here |
-| This repository's own `hackamore ls` on a real Mac | **Live on our Mac mini** with the resident agent; the laptop run is noted in the issue about signing |
+| This repository's own `hackamore ls` on a real Mac | **Live on our Mac mini**, through the resident agent and through the signed v0.1.1 build (no new grant needed). **Not yet run on the laptop**, which was offline |
 | Pixels through a KVM (notification banners, System Settings' password sheet, dialogs) | **Live on our Mac mini**, through housesitter's KVM |
-| Developer ID signing and notarization of releases | **Not yet proven**: see [Signing](#signing) |
+| Developer ID signing and notarization of releases | **Real**: the v0.1.2 release workflow signed and notarized the agent; the grant carried over to the signed build on our Mac mini |
 | A recorded demo and a `hackamore demo` command | **Not built yet** |
 
 MIT licensed. Made by [Ari Mendelow](https://mendelow.me/).
