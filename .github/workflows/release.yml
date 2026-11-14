@@ -1,9 +1,11 @@
 name: Release
-# Run it from the Actions tab with a tag (v0.1.0), or push a v* tag. It builds the Ouro Reins Agent app, signs it with the
+# Every merge to main releases the next patch tag. It can also run from the Actions tab with a tag (v0.1.0), or on a pushed v* tag. It builds the Ouro Reins Agent app, signs it with the
 # ourostack organisation's Developer ID and notarizes it when those secrets reach this repository, and otherwise ships an
 # ad-hoc build and says so in the release notes (an ad-hoc build loses the Accessibility grant whenever the engine changes).
 on:
   push:
+    branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**']
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -20,7 +22,6 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     env:
-      TAG: ${{ github.event.inputs.tag || github.ref_name }}
       CERT_B64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
       CERT_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_IDENTITY }}
@@ -36,7 +37,19 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      - run: node --test test/*.test.mjs
+      # A merge to main already passed the required ci check, so the release does not run the suite again; a tag or dispatch does.
+      - name: Pick the tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" = branch ] && [ "$GITHUB_EVENT_NAME" = push ]; then
+            last="$(gh release list --limit 1 --json tagName -q '.[0].tagName')"
+            IFS=. read -r major minor patch <<< "${last#v}"
+            echo "TAG=v$major.$minor.$((patch + 1))" >> "$GITHUB_ENV"
+          else
+            echo "TAG=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_ENV"
+          fi
+      - name: Test
+        if: github.event_name != 'push' || github.ref_type == 'tag'
+        run: node --test test/*.test.mjs
       - name: Decide how to sign
         id: sign
         run: |
@@ -90,5 +103,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist/ouro-reins-agent.tgz dist/ouro-reins-agent.json --clobber
           else
-            gh release create "$TAG" dist/ouro-reins-agent.tgz dist/ouro-reins-agent.json --title "$TAG" --notes "$NOTES"
+            gh release create "$TAG" --target "$GITHUB_SHA" dist/ouro-reins-agent.tgz dist/ouro-reins-agent.json --title "$TAG" --notes "$NOTES"
           fi
