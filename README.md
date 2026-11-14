@@ -79,7 +79,7 @@ The config file is optional JSON: `protected`, `secrets`, `prompt_decisions`, `c
 
 ## Signing
 
-The agent app is built by this repository's release workflow. With the ourostack Developer ID secrets it is signed and notarized, and macOS keeps the Accessibility grant when the app updates. Without them the release is **ad-hoc signed**, and its notes say `UNSIGNED`: macOS drops the grant each time the engine changes, so grant it again after every update. `hackamore agent install` installs the latest release (or a local build) and only accepts our team's signature or the manifest's exact hash.
+The agent app is built by this repository's release workflow, which publishes the next patch release on every merge to main. With the ourostack Developer ID secrets it is signed and notarized, and macOS keeps the Accessibility grant when the app updates. Without them the release is **ad-hoc signed**, and its notes say `UNSIGNED`: macOS drops the grant each time the engine changes, so grant it again after every update. `hackamore agent install` installs the latest release (or a local build) and only accepts our team's signature or the manifest's exact hash.
 
 ## What's verified
 
