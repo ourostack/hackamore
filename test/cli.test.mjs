@@ -19,6 +19,8 @@ test('config: only well-formed entries count, and inline JSON wins over the file
   assert.deepEqual(c.protected, [{ match: '^com\\.x', name: 'X', read: false, why: 'its owner asked agents to leave it alone' }]);
   assert.deepEqual(c.secrets, ['a', '7']);
   assert.equal(c.prompt_decisions.length, 1);
+  const r = normalize({ secret_rules: [{ item: 'i', account: 'a', app: '^x$', text: 'dialog' }, { item: 'no text', app: 'x' }, { item: 'bad', app: '(', text: 't' }, { item: 'w', app: 'x', text: 't', window: 5 }, null] }).secret_rules;
+  assert.deepEqual(r, [{ item: 'i', service: 'i', account: 'a', app: '^x$', text: 'dialog', window: null, why: 'its owner scoped this secret to one dialog' }], 'a rule needs an app and a text, valid regexes, and a string window');
   const file = path.join(tmp(), 'config.json');
   fs.writeFileSync(file, JSON.stringify({ secrets: ['from-file'] }));
   assert.deepEqual(loadConfig({ env: {}, file }).secrets, ['from-file']);

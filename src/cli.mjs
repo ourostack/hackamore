@@ -72,7 +72,7 @@ async function doctor() {
     screen_capture: Boolean(trust.screen_capture),
     agent: { running: st.running, installed: st.installed, source: st.source },
     gate: { open: gate.open, why: gate.why },
-    config: { protected_extra: cfg.protected.length, secrets: cfg.secrets.length, prompt_decisions: cfg.prompt_decisions.length, clients_extra: cfg.clients.length },
+    config: { protected_extra: cfg.protected.length, secrets: cfg.secrets.length, secret_rules: cfg.secret_rules.length, prompt_decisions: cfg.prompt_decisions.length, clients_extra: cfg.clients.length },
     protected: A.PROTECTED.map((p) => p.name),
     next,
   };

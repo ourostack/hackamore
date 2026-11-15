@@ -534,7 +534,30 @@ export function pickApp(apps, want) {
 }
 
 export const promptDecisionsFor = () => loadConfig().prompt_decisions;
-export const secretsFor = () => loadConfig().secrets;
+export const secretRulesFor = () => loadConfig().secret_rules;
+// What type_secret may name on the accessibility layer: the plain items and the scoped ones.
+export const secretsFor = () => { const c = loadConfig(); return [...new Set([...c.secrets, ...c.secret_rules.map((r) => r.item)])]; };
+// A KVM's pixel layer never gets a scoped secret: a scoped secret is typed only where this Mac's accessibility tree
+// shows which dialog asks for it.
+export const pixelSecretsFor = () => { const c = loadConfig(); return c.secrets.filter((i) => !c.secret_rules.some((r) => r.item === i)); };
+
+// May a scoped secret be typed here? null when it may, otherwise the reason it may not. Pure: `state` is a screen's
+// `state` (src/ax.mjs uiScreen), `el` the field named. The dialog must be in front, nothing else may be asking for
+// attention on top of it, the field must be a password field, the app must be the rule's app, and the dialog must say
+// what the rule expects.
+export function secretRuleVerdict(rule, state, el) {
+  const app = state?.app;
+  if (!app || !new RegExp(rule.app, 'i').test(app.bundle || '')) return `${rule.item} is scoped to one dialog, and ${app?.name || 'this app'} isn't it`;
+  if (!app.front) return `${rule.item} is typed only into ${app.name} while it is in front`;
+  if (state.protected) return `${app.name}: ${state.protected.why}`;
+  if ((state.alerts || []).length) return `${rule.item} is not typed while a system alert is on the screen`;
+  if (!el || el.role !== 'securetextfield' || el.alert) return `${rule.item} is typed only into a password field of that dialog`;
+  if (rule.window && !new RegExp(rule.window, 'i').test(state.window?.title || '')) return `${rule.item} is scoped to a window titled like ${rule.window}`;
+  const re = new RegExp(rule.text, 'i');
+  const said = [state.window?.title, ...(state.elements || []).filter((e) => ['statictext', 'heading'].includes(e.role)).flatMap((e) => [e.label, e.value])].filter(Boolean);
+  if (!said.some((t) => re.test(String(t)))) return `${rule.item} is scoped to a dialog that says "${rule.text}", and this one doesn't`;
+  return null;
+}
 
 export const PERMISSION_FIX = 'once per Mac, a person turns on "Ouro Reins Agent" in System Settings > Privacy & Security > Accessibility (and Screen & System Audio Recording for its pixel layer); `hackamore agent grant --person-here` raises the macOS dialog that opens that page. macOS asks for the Mac\'s password there, which agents never type, and agents never flip this setting themselves';
 
@@ -689,9 +712,11 @@ export async function gated(fn, { idleMin = 90, read, io, ours = null, backgroun
   return { r };
 }
 
-function keychainSecret(item) {
+function keychainSecret(item, rules = secretRulesFor()) {
+  const rule = rules.find((r) => r.item === item);
   return new Promise((resolve) => {
-    const p = spawn('/usr/bin/security', ['find-generic-password', '-s', item, '-w'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    const args = rule ? ['find-generic-password', '-s', rule.service, ...(rule.account ? ['-a', rule.account] : []), '-w'] : ['find-generic-password', '-s', item, '-w'];
+    const p = spawn('/usr/bin/security', args, { stdio: ['ignore', 'pipe', 'ignore'] });
     let out = '';
     p.stdout.on('data', (b) => { out += b; });
     p.on('close', (code) => resolve(code === 0 ? out.replace(/\n$/, '') : null));
@@ -795,6 +820,11 @@ export async function act(action, input = {}, opts = {}) {
     if (action !== 'click' || !(ok.ok || promptClass)) return refuse('app-protected', `alert: ${pv?.answer && pv.answer !== el.label ? `for this prompt agents answer "${pv.answer}" (${pv.why})` : ok.why || pv?.why || 'only clicks answer an alert'}`);
   } else if (L.prot && !['open_app', 'activate'].includes(action)) {
     return refuse('app-protected', `${L.prot.app}: ${L.prot.why}`);
+  }
+  if (action === 'type_secret') {
+    const rule = (opts.secretRules ?? secretRulesFor()).find((r) => r.item === input.keychain_item);
+    const why = rule ? secretRuleVerdict(rule, L.view.state, el) : null;
+    if (why) return refuse('app-protected', why);
   }
   if (action === 'type_text' && el?.role === 'securetextfield') return refuse('input-invalid', '$.element: a password field takes type_secret (a Keychain item name), never text', { path: '$.element' });
   let pid = el?.at?.pid || L.target?.pid;
@@ -1199,7 +1229,7 @@ async function viaKvm(host, cmd, p, transport, deps = {}) {
     const ocr = P.engineOcr(E);
     // Secrets for a Mac driven through its KVM are read here, on the controller, from its own Keychain, and go to the
     // KVM's keyboard: never argv, never the transport.
-    const secrets = deps.secrets ?? secretsFor();
+    const secrets = deps.secrets ?? pixelSecretsFor();
     const sec = { secrets, secret: keychainSecret, settleMs: Number(process.env.HACKAMORE_PIXEL_SETTLE_MS || 250) };
     const gateFor = deps.gateFor ? deps.gateFor(host) : P.remoteGate(transport, host);
     if (cmd === 'ls') {
