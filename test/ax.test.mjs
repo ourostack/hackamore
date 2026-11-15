@@ -329,6 +329,54 @@ test('type_secret reads the Keychain item on the Mac that types, only when the c
   assert.equal(bad.reply.refused, 'input-invalid');
 });
 
+const RULE = { item: 'vault-pw', service: 'svc', account: 'acct', app: '^com\\.apple\\.finder$', text: 'downloads', window: null, why: 'scoped' };
+
+test('a scoped secret is typed only into the one dialog its rule names, and the other dialogs never see it', async () => {
+  for (const [name, rule, why] of [
+    ['another app', { ...RULE, app: '^com\\.example\\.other$' }, /scoped to one dialog/],
+    ['a window title that differs', { ...RULE, window: '^Documents$' }, /titled like/],
+    ['text the dialog does not say', { ...RULE, text: 'enter the password for' }, /doesn't/],
+  ]) {
+    const w = world();
+    w.opts.cache.secrets = ['vault-pw'];
+    const asked = [];
+    const r = await U.act('type_secret', { keychain_item: 'vault-pw', element: 'securetextfield[Password]' }, { ...w.opts, secretRules: [rule], secret: async (k) => { asked.push(k); return 's3cret'; } });
+    assert.equal(r.reply.refused, 'app-protected', name);
+    assert.match(r.reply.message, why, name);
+    assert.deepEqual(asked, [], `${name}: the Keychain is not even read`);
+  }
+  const w = world();
+  w.opts.cache.secrets = ['vault-pw'];
+  const asked = [];
+  const ok = await U.act('type_secret', { keychain_item: 'vault-pw', element: 'securetextfield[Password]' }, { ...w.opts, secretRules: [RULE], secret: async (k) => { asked.push(k); return 's3cret'; } });
+  assert.equal(ok.code, 0, JSON.stringify(ok.reply));
+  assert.deepEqual(asked, ['vault-pw']);
+  assert.ok(!JSON.stringify(ok.reply).includes('s3cret'));
+});
+
+test('secretRuleVerdict: needs the app in front, no alert on top, a password field and the words the rule expects', () => {
+  const rule = { item: 'x', app: '^com\\.apple\\.SetupAssistant$', text: 'to set up icloud.*enter the password for', window: null };
+  const state = { app: { name: 'Setup Assistant', bundle: 'com.apple.SetupAssistant', front: true }, window: { title: null }, alerts: [], elements: [{ role: 'statictext', label: 'To set up iCloud, enter the password for “a@b.c”' }, { role: 'securetextfield', label: 'Password' }] };
+  const field = { role: 'securetextfield' };
+  assert.equal(U.secretRuleVerdict(rule, state, field), null);
+  assert.match(U.secretRuleVerdict(rule, { ...state, app: { ...state.app, front: false } }, field), /in front/);
+  assert.match(U.secretRuleVerdict(rule, { ...state, alerts: [{ owner: 'UserNotificationCenter' }] }, field), /alert/);
+  assert.match(U.secretRuleVerdict(rule, state, { role: 'textfield' }), /password field/);
+  assert.match(U.secretRuleVerdict(rule, { ...state, elements: [{ role: 'statictext', label: 'Enter the password for “a”.' }] }, field), /doesn't/, 'another pane of the same app is not the dialog');
+  assert.match(U.secretRuleVerdict(rule, { ...state, app: { ...state.app, bundle: 'com.apple.Safari' } }, field), /scoped to one dialog/);
+});
+
+test('a scoped secret reaches the accessibility layer, never a KVM\'s pixel layer, and is looked up by service and account', () => {
+  const was = process.env.HACKAMORE_CONFIG_JSON;
+  process.env.HACKAMORE_CONFIG_JSON = JSON.stringify({ secrets: ['plain', 'vault-pw'], secret_rules: [{ item: 'vault-pw', service: 'svc', account: 'acct', app: '^a$', text: 't' }] });
+  try {
+    assert.deepEqual(U.secretsFor().sort(), ['plain', 'vault-pw']);
+    assert.deepEqual(U.pixelSecretsFor(), ['plain']);
+  } finally { if (was == null) delete process.env.HACKAMORE_CONFIG_JSON; else process.env.HACKAMORE_CONFIG_JSON = was; }
+  const ui = fs.readFileSync(path.join(SRC, 'ax.mjs'), 'utf8');
+  assert.match(ui, /'find-generic-password', '-s', rule\.service, \.\.\.\(rule\.account \? \['-a', rule\.account\] : \[\]\), '-w'/);
+});
+
 test('settle: one read when nothing changed after the quiet time, a confirming read when it did', async () => {
   let t = 0;
   const seq = ['a', 'b', 'b'];

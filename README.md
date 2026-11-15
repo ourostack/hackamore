@@ -69,7 +69,9 @@ One request is a JSON line on stdin and one reply is a JSON line out, so `ssh`, 
 - **No password on the command line, ever.** `type_secret` takes a Keychain item name the owner's config lists (`secrets`); the value is read on the Mac that types it and only typed into a field that is asking for a password.
 - **A permission prompt is answered only when the owner said so**: never a password, administrator or security prompt, and only the one button in a recorded `prompt_decisions` entry or an `Allow` for a tool listed in `clients`.
 
-The config file is optional JSON: `protected`, `secrets`, `prompt_decisions`, `clients`. `HACKAMORE_CONFIG` names another file and `HACKAMORE_CONFIG_JSON` carries it inline.
+- **A secret can be scoped to one dialog.** A `secret_rules` entry (`item`, optional `service` and `account` for the Keychain lookup, `app`, `text`, optional `window`) lets `type_secret` type that item only into a password field of the app whose bundle id matches `app`, while it is in front, with no system alert on top, and only when its window says something that matches `text`. Anywhere else it is refused (`app-protected`) before the Keychain is read. A scoped secret is typed only through the accessibility layer, never through a KVM's pixels.
+
+The config file is optional JSON: `protected`, `secrets`, `secret_rules`, `prompt_decisions`, `clients`. `HACKAMORE_CONFIG` names another file and `HACKAMORE_CONFIG_JSON` carries it inline.
 
 ## Where it sits
 
