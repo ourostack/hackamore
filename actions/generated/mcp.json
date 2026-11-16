@@ -1,0 +1,230 @@
+{
+  "generator": "ouro-actions 0.17.4",
+  "set": "hackamore",
+  "tools": [
+    {
+      "name": "ls",
+      "title": "Read the screen",
+      "description": "Read the screen of the front app, or of the named app, and the actions it accepts. Read-only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "The app to read. Defaults to the front app."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "elements": {
+            "type": "string",
+            "description": "JSON: the screen's elements and the actions each accepts."
+          }
+        },
+        "required": [
+          "elements"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "gate_check",
+      "title": "Check the gate",
+      "description": "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "idle": {
+            "type": "integer",
+            "description": "How long nobody must have used the Mac. Defaults to 90.",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "boolean",
+            "description": "True when an agent may touch the screen now."
+          },
+          "why": {
+            "type": "string",
+            "description": "The reason the gate is open or shut."
+          }
+        },
+        "required": [
+          "open",
+          "why"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "doctor",
+      "title": "Check this Mac",
+      "description": "Report what this Mac has for hackamore and the next step if something is missing. Read-only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "True when the Accessibility grant is in place."
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "do",
+      "title": "Run one action on an app",
+      "description": "Run one action on an app on this Mac, which other people may see, and read the screen after it. A person says yes first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "The action to run, as ls lists it."
+          },
+          "inputJson": {
+            "type": "string",
+            "description": "The action's input as a JSON object."
+          },
+          "app": {
+            "type": "string",
+            "description": "The app to act on. Defaults to the front app."
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "ok, failed or refused, and the screen after the action."
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "batch",
+      "title": "Run many actions on an app",
+      "description": "Run a list of steps on an app on this Mac, which other people may see. A person says yes first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "steps": {
+            "type": "string",
+            "description": "A JSON array of {action, input, until?, app?} steps."
+          },
+          "app": {
+            "type": "string",
+            "description": "The app to act on by default."
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "ok, failed or refused, and the screen after the last step run."
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "journey",
+      "title": "Replay a recorded journey",
+      "description": "Replay a recorded journey of steps on an app on this Mac, which other people may see. A person says yes first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "A JSON file of recorded steps."
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "ok, failed or refused, and the screen after the last step run."
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "refusals": {}
+}

@@ -1,0 +1,97 @@
+{
+  "generator": "ouro-actions 0.17.4",
+  "set": "hackamore",
+  "tool": "hackamore",
+  "commands": [
+    {
+      "name": "ls",
+      "summary": "Read the screen of the front app, or of the named app, and the actions it accepts. Read-only.",
+      "effect": "private",
+      "readOnly": true,
+      "flags": {
+        "app": {
+          "type": "string",
+          "description": "The app to read. Defaults to the front app."
+        }
+      },
+      "output": "{ elements }"
+    },
+    {
+      "name": "gate check",
+      "summary": "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
+      "effect": "private",
+      "readOnly": true,
+      "flags": {
+        "idle": {
+          "type": "number",
+          "description": "How long nobody must have used the Mac. Defaults to 90.",
+          "min": 0
+        }
+      },
+      "output": "{ open, why }"
+    },
+    {
+      "name": "doctor",
+      "summary": "Report what this Mac has for hackamore and the next step if something is missing. Read-only.",
+      "effect": "private",
+      "readOnly": true,
+      "output": "{ ok }"
+    },
+    {
+      "name": "do",
+      "summary": "Run one action on an app on this Mac, which other people may see, and read the screen after it. A person says yes first.",
+      "effect": "others",
+      "args": [
+        {
+          "name": "action",
+          "description": "The action to run, as ls lists it.",
+          "required": true
+        }
+      ],
+      "flags": {
+        "input-json": {
+          "type": "string",
+          "description": "The action's input as a JSON object."
+        },
+        "app": {
+          "type": "string",
+          "description": "The app to act on. Defaults to the front app."
+        }
+      },
+      "output": "{ state }"
+    },
+    {
+      "name": "batch",
+      "summary": "Run a list of steps on an app on this Mac, which other people may see. A person says yes first.",
+      "effect": "others",
+      "args": [
+        {
+          "name": "steps",
+          "description": "A JSON array of {action, input, until?, app?} steps.",
+          "required": true
+        }
+      ],
+      "flags": {
+        "app": {
+          "type": "string",
+          "description": "The app to act on by default."
+        }
+      },
+      "output": "{ state }"
+    },
+    {
+      "name": "journey",
+      "summary": "Replay a recorded journey of steps on an app on this Mac, which other people may see. A person says yes first.",
+      "effect": "others",
+      "args": [
+        {
+          "name": "file",
+          "description": "A JSON file of recorded steps.",
+          "required": true
+        }
+      ],
+      "output": "{ state }"
+    }
+  ],
+  "personOnly": {}
+}
