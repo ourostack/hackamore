@@ -13,15 +13,15 @@ export const EXIT_CODES = [
 ];
 
 export const COMMANDS = [
-  { name: 'ls', args: '[app] [--layer auto|ax|pixels] [--no-menus] [--diff]', summary: "read the screen: the front app (or [app]) as elements, plus the actions that make sense on it right now, each with a schema narrowed to what is there", example: 'hackamore ls Finder', effect: 'none' },
-  { name: 'do', args: "<action> ['<json input>'] [--app A] [--idle 90] [--record <file>] [--diff]", summary: 'run one action (click, set_value, type_text, press_key, menu, scroll, perform, open_app, activate, type_secret) and get the screen after it', example: `hackamore do click '{"element":"button[Back]"}'`, effect: 'changes the app on the Mac, when nobody is using it' },
-  { name: 'batch', args: "'<json array of {action,input,until?,app?}>' [--app A] [--record <file>]", summary: 'many steps in one call; a step\'s until ({"@field.value":"42"}) is checked on the Mac, and the run stops at the first refusal or unmet until', example: `hackamore batch '[{"action":"click","input":{"element":"button[7]"}}]'`, effect: 'as do, for each step' },
-  { name: 'journey', args: '<file>', summary: 'replay a journey recorded with --record as one batch', example: 'hackamore journey form.json', effect: 'as batch' },
-  { name: 'wire', args: '', summary: 'serve one request: read a JSON line from stdin, print the reply line. This is what --via runs on the other Mac', example: `echo '{"cmd":"ls"}' | hackamore wire`, effect: 'as the request asks' },
-  { name: 'gate', args: '[check|wait] [--idle 90] [--max-min 30] [--json]', summary: 'may an agent touch this screen now: unlocked, and nobody has used it for the idle time', example: 'hackamore gate check', effect: 'none' },
-  { name: 'agent', args: 'status|install|build|grant [--person-here]', summary: 'the resident Ouro Reins Agent that holds the Accessibility grant: is it running, install it, grant it (only with a person at the Mac)', example: 'hackamore agent status', effect: 'install and grant change this Mac' },
-  { name: 'doctor', args: '', summary: 'what this Mac has: the agent, the grant, the gate, the config, the protected apps, and the next step if something is missing', example: 'hackamore doctor', effect: 'none' },
-  { name: 'help', args: '[--json]', summary: 'this list', example: 'hackamore help --json', effect: 'none' },
+  { name: 'ls', effect: 'private', args: '[app] [--layer auto|ax|pixels] [--no-menus] [--diff]', summary: "read the screen: the front app (or [app]) as elements, plus the actions that make sense on it right now, each with a schema narrowed to what is there", example: 'hackamore ls Finder', note: 'none' },
+  { name: 'do', effect: 'others', args: "<action> ['<json input>'] [--app A] [--idle 90] [--record <file>] [--diff]", summary: 'run one action (click, set_value, type_text, press_key, menu, scroll, perform, open_app, activate, type_secret) and get the screen after it', example: `hackamore do click '{"element":"button[Back]"}'`, note: 'changes the app on the Mac, when nobody is using it' },
+  { name: 'batch', effect: 'others', args: "'<json array of {action,input,until?,app?}>' [--app A] [--record <file>]", summary: 'many steps in one call; a step\'s until ({"@field.value":"42"}) is checked on the Mac, and the run stops at the first refusal or unmet until', example: `hackamore batch '[{"action":"click","input":{"element":"button[7]"}}]'`, note: 'as do, for each step' },
+  { name: 'journey', effect: 'others', args: '<file>', summary: 'replay a journey recorded with --record as one batch', example: 'hackamore journey form.json', note: 'as batch' },
+  { name: 'wire', effect: 'others', args: '', summary: 'serve one request: read a JSON line from stdin, print the reply line. This is what --via runs on the other Mac', example: `echo '{"cmd":"ls"}' | hackamore wire`, note: 'as the request asks' },
+  { name: 'gate', effect: 'private', args: '[check|wait] [--idle 90] [--max-min 30] [--json]', summary: 'may an agent touch this screen now: unlocked, and nobody has used it for the idle time', example: 'hackamore gate check', note: 'none' },
+  { name: 'agent', effect: 'private', args: 'status|install|build|grant [--person-here]', summary: 'the resident Ouro Reins Agent that holds the Accessibility grant: is it running, install it, grant it (only with a person at the Mac)', example: 'hackamore agent status', note: 'install and grant change this Mac' },
+  { name: 'doctor', effect: 'private', args: '', summary: 'what this Mac has: the agent, the grant, the gate, the config, the protected apps, and the next step if something is missing', example: 'hackamore doctor', note: 'none' },
+  { name: 'help', effect: 'private', args: '[--json]', summary: 'this list', example: 'hackamore help --json', note: 'none' },
 ];
 
 export const GLOBAL_FLAGS = [
@@ -30,28 +30,55 @@ export const GLOBAL_FLAGS = [
   { flag: '--kvm <name>', meaning: "use the pixels of a housesitter KVM for that Mac (needs @ouro.bot/housesitter)" },
 ];
 
+// Help lines stay within this many columns, so they wrap the same way in a terminal and a transcript.
+const WIDTH = 96;
+export function wrap(text, indent = '', lead = indent) {
+  const out = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    if (line && (line + ' ' + word).length > WIDTH) { out.push(line); line = indent + word; } else line = line ? `${line} ${word}` : (out.length ? indent : lead) + word;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+const AMBIGUOUS_VERBS = ['edit', 'delete', 'remove'];
+
+export function commandHelp(name) {
+  const c = COMMANDS.find((x) => x.name === name);
+  return [
+    `hackamore ${c.name}${c.args ? ` ${c.args}` : ''}`,
+    '',
+    ...wrap(c.summary, '  '),
+    '',
+    `Who sees it: ${c.effect === 'others' ? 'other people, as well as the person' : 'only the person'}.`,
+    ...(c.note ? wrap(`Effect: ${c.note}.`) : []),
+    ...(c.example ? ['', `Example: ${c.example}`] : []),
+  ].join('\n');
+}
+
 export function helpText() {
   const w = Math.max(...COMMANDS.map((c) => c.name.length));
   return [
-    'hackamore: drive any Mac app like an API through its accessibility tree. Replies are JSON; nothing is typed or clicked on a screen a person is using.',
+    ...wrap('hackamore: drive any Mac app like an API through its accessibility tree. Replies are JSON; nothing is typed or clicked on a screen a person is using.'),
     '',
     'Commands:',
-    ...COMMANDS.map((c) => `  hackamore ${c.name.padEnd(w)}  ${c.summary}`),
+    ...COMMANDS.flatMap((c) => wrap(c.summary, ' '.repeat(4 + w), `  hackamore ${c.name.padEnd(w)}  `)),
     '',
-    'Start with `hackamore ls` (read) then `hackamore do <action> \'<json>\'`; every ls reply lists the actions and the exact values each accepts. `hackamore doctor` says what is missing.',
+    ...wrap('Start with `hackamore ls` (read) then `hackamore do <action> \'<json>\'`; every ls reply lists the actions and the exact values each accepts. `hackamore doctor` says what is missing.'),
     '',
     'Flags for ls, do, batch and journey:',
-    ...GLOBAL_FLAGS.map((f) => `  ${f.flag}  ${f.meaning}`),
+    ...GLOBAL_FLAGS.flatMap((f) => wrap(f.meaning, ' '.repeat(4 + f.flag.length), `  ${f.flag}  `)),
     '',
     'Exit codes:',
-    ...EXIT_CODES.map((e) => `  ${e.code}  ${e.name}: ${e.meaning}`),
+    ...EXIT_CODES.flatMap((e) => wrap(e.meaning, '      ', `  ${e.code}  ${e.name}: `)),
     '',
     'Examples:',
     ...COMMANDS.filter((c) => c.example).map((c) => `  ${c.example}`),
   ].join('\n');
 }
 
-export const helpJson = () => ({ tool: 'hackamore', commands: COMMANDS, flags: GLOBAL_FLAGS, exit_codes: EXIT_CODES });
+export const helpJson = () => ({ tool: 'hackamore', commands: COMMANDS, flags: GLOBAL_FLAGS, exitCodes: EXIT_CODES, exit_codes: EXIT_CODES });
 
 async function doctor() {
   const AG = await import('./agent.mjs');
@@ -89,6 +116,8 @@ export async function main(argv, { print = (o) => console.log(JSON.stringify(o, 
   try {
     if (cmd === 'help' || cmd === '--help' || cmd === '-h') { if (rest.includes('--json')) print(helpJson()); else console.log(helpText()); return 0; }
     if (cmd === '--version' || cmd === 'version') { console.log(JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version); return 0; }
+    if (COMMANDS.some((c) => c.name === cmd) && rest.includes('--help')) { console.log(commandHelp(cmd)); return 0; }
+    if (AMBIGUOUS_VERBS.includes(cmd)) throw new Error(`usage: "${cmd}" doesn't act on its own. Fix: to act on an app, use hackamore do <action> '<json>'; to read it first, use hackamore ls`);
     if (cmd === 'ls' || cmd === 'do' || cmd === 'batch') return await A.cmdUiReins(cmd, rest, { print });
     if (cmd === 'journey') {
       const f = rest.find((a) => !a.startsWith('--'));
