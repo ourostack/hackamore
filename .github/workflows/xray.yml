@@ -28,7 +28,7 @@ jobs:
           mkdir -p xray "$XRAY_HOME"
           node scripts/inventory.mjs > inventory.json
           node lib/ouro-ui/registry/ouro/ax/xray.ts --cli "node bin/hackamore.mjs" --inventory inventory.json \
-            --conformance --home "$XRAY_HOME" --env "HACKAMORE_ENGINE_STUB=$GITHUB_WORKSPACE/test/fixtures/engine-stub.mjs" \
+            --conformance --home "$XRAY_HOME" --env "HACKAMORE_ENGINE_STUB=$GITHUB_WORKSPACE/test/fixtures/engine-stub.mjs" --env "RUNNER_TEMP=$RUNNER_TEMP" \
             --guard "node scripts/assert-mock.mjs" --state "help --json" --commit "$GITHUB_SHA" \
             --json --md xray/xray.md > xray/report.json
       - name: Gate on the must claims
