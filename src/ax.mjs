@@ -40,6 +40,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ---------- the engine (resident, one per process) ----------
 
+// The X-ray's fixture engine (test/fixtures/engine-stub.mjs). Its guard (scripts/assert-mock.mjs) writes this marker into
+// the isolated home once it has proved the home is one; without the marker the variable is refused, never read.
+export const XRAY_MARKER = '.hackamore-xray-guard';
+export function stubEngineBin({ env = process.env, home = os.homedir() } = {}) {
+  const stub = env.HACKAMORE_ENGINE_STUB;
+  if (stub === undefined || stub === '') return null;
+  const refuse = (problem, fix) => { throw new Error(`HACKAMORE_ENGINE_STUB ${problem}. Fix: ${fix}`); };
+  if (!fs.existsSync(path.join(home, XRAY_MARKER))) refuse('is set, but this home has no X-ray guard marker', 'run it only through the Ouro AX X-ray with its --guard, or unset HACKAMORE_ENGINE_STUB');
+  if (!path.isAbsolute(stub)) refuse(`(${stub}) is not an absolute path`, 'give the stub its full path');
+  let st;
+  try { st = fs.lstatSync(stub); } catch { refuse(`(${stub}) does not exist`, 'point it at the stub file'); }
+  if (st.isSymbolicLink()) refuse(`(${stub}) is a symlink`, 'point it at the stub file itself');
+  if (!st.isFile()) refuse(`(${stub}) is not a regular file`, 'point it at the stub file');
+  try { fs.accessSync(stub, fs.constants.X_OK); } catch { refuse(`(${stub}) is not executable`, `chmod +x ${stub}`); }
+  return stub;
+}
+
 export async function engineBin({ src = path.join(HERE, '..', 'swift', 'ax-engine.swift'), cache = CACHE, compile = compileSwift } = {}) {
   const h = createHash('sha256').update(fs.readFileSync(src)).digest('hex').slice(0, 12);
   const bin = path.join(cache, `ax-engine-${h}`);
@@ -139,7 +156,7 @@ export async function engine({ socks = [AGENT_SOCK, LEGACY_SOCK] } = {}) {
       if (t.ok) cands.push([a, t]); else a.stop();
       if (t.ok && t.ax) break;
     }
-    if (!cands.some(([, t]) => t.ax)) { const c = new Engine(await engineBin()); c.kind = 'child'; const t = await c.req('trust', {}, 3000); cands.push([c, t]); }
+    if (!cands.some(([, t]) => t.ax)) { const c = new Engine(stubEngineBin() ?? await engineBin()); c.kind = 'child'; const t = await c.req('trust', {}, 3000); cands.push([c, t]); }
     const best = cands.find(([, t]) => t.ax) || cands[0];
     for (const [e] of cands) if (e !== best[0]) e.stop();
     return { e: best[0], trusted: Boolean(best[1].ax), at: Date.now() };
