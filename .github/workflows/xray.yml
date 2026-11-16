@@ -24,6 +24,7 @@ jobs:
       - name: Ouro AX X-ray
         env:
           XRAY_HOME: ${{ runner.temp }}/xray-home
+          TMPDIR: ${{ runner.temp }}
         run: |
           mkdir -p xray "$XRAY_HOME"
           node scripts/inventory.mjs > inventory.json
