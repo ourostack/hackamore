@@ -143,6 +143,7 @@ interface CommandManifest {
   aliases: readonly string[];
   effect: "private" | "others";
   whoSees: string;
+  protocol?: true;
   readOnly: boolean;
   needsWhy: boolean;
   /** Whether `--dry-run` previews it (an "others" command with a plan()). */
@@ -182,6 +183,7 @@ function commandManifest(cli: Cli, cmd: CommandDef): CommandManifest {
     output: cmd.output ?? null,
     examples: cmd.examples ?? [],
     hidden: cmd.hidden === true,
+    ...(cmd.protocol ? { protocol: true as const } : {}),
     ...(cmd.self ? { scope: "self" as const } : {}),
     ...(cmd === cli.defaultCommand ? { single: true as const } : {}),
   };
