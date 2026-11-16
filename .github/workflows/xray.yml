@@ -1,0 +1,63 @@
+name: Ouro AX X-ray
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  xray:
+    name: Ouro AX X-ray
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.18"
+      # The CLI runs against the fixture engine (test/fixtures/engine-stub.mjs), a made-up app: never a Mac's desktop.
+      # The guard proves the home is temporary before anything the CLI does is trusted.
+      - name: Ouro AX X-ray
+        env:
+          XRAY_HOME: ${{ runner.temp }}/xray-home
+        run: |
+          mkdir -p xray "$XRAY_HOME"
+          node scripts/inventory.mjs > inventory.json
+          node lib/ouro-ui/registry/ouro/ax/xray.ts --cli "node bin/hackamore.mjs" --inventory inventory.json \
+            --conformance --home "$XRAY_HOME" --env "HACKAMORE_ENGINE_STUB=$GITHUB_WORKSPACE/test/fixtures/engine-stub.mjs" \
+            --guard "node scripts/assert-mock.mjs" --state "help --json" --commit "$GITHUB_SHA" \
+            --json --md xray/xray.md > xray/report.json
+      - name: Gate on the must claims
+        if: always()
+        run: |
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync("xray/report.json", "utf8"));
+            const { must, mustHolding } = r.summary;
+            if (!(must > 0) || mustHolding !== must) {
+              console.error(`must claims holding: ${mustHolding} of ${must}; every must claim has to hold`);
+              process.exit(1);
+            }
+            console.log(`every must claim holds: ${mustHolding} of ${must}`);
+          '
+      - name: Action claims
+        if: always()
+        run: |
+          mkdir -p xray-actions
+          node tools/ouro-actions/ouro-actions.mts check actions/hackamore.actions.mts actions/generated \
+            --report xray-actions/report.json --app "Hackamore" --commit "$GITHUB_SHA"
+      - name: Upload the X-ray
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xray
+          path: xray/
+      - name: Upload the action claims
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actions-xray
+          path: xray-actions/

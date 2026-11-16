@@ -8,3 +8,4 @@
 - `<command> --help` prints that command's usage, who sees it, and an example.
 - `edit`, `delete` and `remove` answer with the commands to use instead; they do not act.
 - Unknown flags on declared commands are refused, naming the flag.
+- The Ouro AX X-ray runs in CI against the fixture engine, and fails unless every must claim holds. `wire` is marked `protocol`, so its one JSON reply line on stdout is the reply.

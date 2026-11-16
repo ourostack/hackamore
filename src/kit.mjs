@@ -93,6 +93,7 @@ commands.push(defineCommand({
 }));
 commands.push(defineCommand({
   name: 'wire',
+  protocol: true,
   summary: 'serve one request: read a JSON line from stdin, print the reply line. This is what --via runs on the other Mac',
   effect: 'others',
   flags: {},

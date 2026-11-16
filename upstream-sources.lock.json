@@ -4,7 +4,7 @@
     {
       "id": "ourostack-ouro-ui-ax",
       "repository": "ourostack/ouro-ui",
-      "commit": "e039578bbbe3a00c2f1ea1cbed551af720c5c590",
+      "commit": "242eac446c93541bee75c7bb47335a2ff9b83a8a",
       "license": "MIT",
       "files": [
         {
@@ -20,7 +20,7 @@
         {
           "sourcePath": "registry/ouro/ax/claims.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/claims.ts",
-          "sha256": "4821966c892aa506db69fc3f6b3e0ae0ec1f4aa3641398e49f3e63ac2443661f"
+          "sha256": "2557bcff1c03a8b36a7a0f3ce9a17037ec90f43f7e18ef9d91790c5078415919"
         },
         {
           "sourcePath": "registry/ouro/ax/cli.ts",
@@ -30,7 +30,7 @@
         {
           "sourcePath": "registry/ouro/ax/command.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/command.ts",
-          "sha256": "96e9107cfd0386936a51f2c2ce690c53736e5071e1d7d0c61520e3ecb243cae3"
+          "sha256": "60a8394734ba16dac556a214393c5a3005e940e1c44601e3c1069753999debc1"
         },
         {
           "sourcePath": "registry/ouro/ax/component.ts",
@@ -65,7 +65,7 @@
         {
           "sourcePath": "registry/ouro/ax/help.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/help.ts",
-          "sha256": "bf38eeccb43846808d6a8c124b307b6aaf8e6d3630fa7c99361168fb40592941"
+          "sha256": "9c84080a4c009f8618dc453ccec31ecec8141ec49b06910f48fffdbd406fb62a"
         },
         {
           "sourcePath": "registry/ouro/ax/lint.ts",
@@ -100,7 +100,7 @@
         {
           "sourcePath": "registry/ouro/ax/surfaces.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/surfaces.ts",
-          "sha256": "b8929125f579eb78627a0de0245e5dc312e28654791052e3b98b99c34a92ad01"
+          "sha256": "1a6e09a3b38cadc7488c51bcb276fd5f41d4d8c9139d56f5688b209c2b75f050"
         },
         {
           "sourcePath": "registry/ouro/ax/terminal.ts",
@@ -125,7 +125,7 @@
         {
           "sourcePath": "registry/ouro/ax/xray.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/xray.ts",
-          "sha256": "e56956b1d5fa796d4b0bfa76ab8e8244b226cb06145f2be7369daa4baea666e7"
+          "sha256": "e3755a194b7293e4da6faf2d2a2a8053491b2769ca0d1a184d20fb943267b32f"
         }
       ]
     }
