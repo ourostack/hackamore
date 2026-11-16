@@ -5,6 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { defineCli, defineCommand, parse } from '../lib/ouro-ui/registry/ouro/ax/command.ts';
 import { errorLine, isAxError } from '../lib/ouro-ui/registry/ouro/ax/problem.ts';
+import { outcome, outcomeText } from '../lib/ouro-ui/registry/ouro/ax/outcome.ts';
 
 const declared = JSON.parse(readFileSync(new URL('../actions/generated/commands.json', import.meta.url), 'utf8')).commands;
 
@@ -44,6 +45,21 @@ const LEGACY = {
   },
 };
 
+const GATE_ARGS = [{ name: 'action', description: 'check (the default), wait, init, pre, post or show.' }];
+const GATE_FLAGS = {
+  idle: { type: 'number', description: 'How long nobody must have used the Mac, in seconds.', min: 0 },
+  'max-min': { type: 'number', description: 'With wait: how many minutes to wait at most.', min: 0 },
+};
+
+const AGENT_FLAGS = {
+  from: { type: 'string', description: 'With install: the folder to install from.' },
+  force: { type: 'boolean', description: 'With install: replace what is installed.' },
+  'developer-id': { type: 'boolean', description: 'With build: sign with a Developer ID certificate.' },
+  'ad-hoc': { type: 'boolean', description: 'With build: sign ad hoc.' },
+  notarize: { type: 'boolean', description: 'With build: notarize the app.' },
+  'person-here': { type: 'boolean', description: 'With grant: only with a person at the Mac.' },
+};
+
 const GLOBAL_FLAGS = {
   via: { type: 'string', description: "Drive another Mac: the command runs `hackamore wire` there, e.g. 'ssh mini hackamore wire'." },
   as: { type: 'string', description: 'Name the Mac in replies and the screen cache.' },
@@ -52,6 +68,7 @@ const GLOBAL_FLAGS = {
 
 const commands = declared.map((d) => {
   const extra = LEGACY[d.name === 'gate check' ? 'gate' : d.name] ?? {};
+  if (d.name === 'gate check') return defineCommand({ name: 'gate', summary: d.summary, effect: 'private', readOnly: true, args: GATE_ARGS, flags: GATE_FLAGS, output: '{ open, why }' });
   const flags = { ...(d.flags ?? {}), ...(extra.flags ?? {}) };
   for (const f of extra.drop ?? []) delete flags[f];
   return defineCommand({
@@ -62,11 +79,18 @@ const commands = declared.map((d) => {
     args: extra.args ?? d.args,
     flags,
     output: d.output,
-    loose: d.name === 'gate check' ? true : undefined,
   });
 });
 
 
+commands.push(defineCommand({
+  name: 'agent',
+  summary: 'the resident Ouro Reins Agent that holds the Accessibility grant: is it running, install it, grant it (only with a person at the Mac)',
+  effect: 'private',
+  args: [{ name: 'action', description: 'status (the default), install, build or grant.' }],
+  flags: AGENT_FLAGS,
+  output: '{ running, installed, source }',
+}));
 commands.push(defineCommand({
   name: 'wire',
   summary: 'serve one request: read a JSON line from stdin, print the reply line. This is what --via runs on the other Mac',
@@ -94,7 +118,6 @@ function legacyArgv(argv) {
 // The flags the commands outside the kit take; a flag not on the list is refused by name.
 const LEGACY_FLAGS = {
   help: ['--json'],
-  agent: ['--from', '--force', '--developer-id', '--ad-hoc', '--notarize', '--person-here', '--json'],
 };
 
 function refuseUnknownFlag(cmd, argv) {
@@ -114,22 +137,33 @@ function refuseMissingWhy(cmd, argv) {
 
 const PLACE = { do: '<action>', batch: '<steps>', journey: '<file>', wire: '' };
 
+// A --dry-run answer: what would run, on which target, and who would see it. Nothing is sent or run.
+export function planOutcome(name, others) {
+  const c = commands.find((x) => x.name === name);
+  const summary = `Would run ${name} on the front app, resolved at run time: ${c.summary} Nothing was sent.`
+    + (others ? ' Other people will see it if it runs.' : '');
+  return outcome({ action: name, state: 'planned', effect: others ? 'others' : 'private', audience: others ? { only: false, who: 'the people in the front app, resolved at run time' } : undefined, summary });
+}
+
+const answer = (o, argv) => ({ handled: true, exit: 0, outcome: o, json: argv.includes('--json') });
+
+// Returns { handled: false, argv } for commands the kit does not cover or runs; { handled: true, exit, outcome?, json? }
+// once it has answered. A --dry-run answers with a planned outcome, even when no target was named yet.
 export function checkArgv(argv) {
   const [cmd] = argv;
   if (cmd && LEGACY_FLAGS[cmd]) { const r = refuseUnknownFlag(cmd, argv); if (r) return r; }
   if (!cmd || !KNOWN.has(cmd)) return { handled: false, argv };
-  if (commands.find((c) => c.name === cmd)?.effect === 'others') { const r = refuseMissingWhy(cmd, argv); if (r) return r; }
+  const others = commands.find((c) => c.name === cmd)?.effect === 'others';
+  if (others) { const r = refuseMissingWhy(cmd, argv); if (r) return r; }
+  const dry = argv.includes('--dry-run');
   try {
     const parsed = parse(cli, argv);
     if (parsed.kind !== 'run') return { handled: false, argv };
-    const dry = parsed.input['dry-run'] === true || argv.includes('--dry-run');
-    if (dry) {
-      const others = parsed.command.effect === 'others';
-      return { handled: true, exit: 0, plan: { state: 'planned', command: parsed.command.name, summary: `Would run ${parsed.command.name}${others ? '; other people will see it, as the person' : ''}. Nothing was sent.` } };
-    }
+    if (dry) return answer(planOutcome(cmd, others), argv);
     return { handled: false, argv: legacyArgv(argv) };
   } catch (e) {
     if (!isAxError(e)) throw e;
+    if (dry && /needs <[^>]+>/.test(e.message)) return answer(planOutcome(cmd, others), argv);
     console.error(errorLine('hackamore', e.shape));
     return { handled: true, exit: e.exit };
   }
