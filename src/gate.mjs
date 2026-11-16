@@ -60,7 +60,7 @@ export function readMachine(run = (cmd, args) => spawnSync(cmd, args, { encoding
 // ---------- the decision ----------
 
 export function verdict(m, { idleMin = IDLE_MIN } = {}) {
-  if (m.idle == null) return { open: false, why: 'could not read HIDIdleTime' };
+  if (m.idle == null) return { open: false, why: 'the idle-time counter (HIDIdleTime) gave no reading, so the gate cannot tell whether someone is using the Mac. Fix: run hackamore doctor on this Mac' };
   if (m.locked) return { open: false, why: m.why || 'locked' };
   if (m.idle < idleMin) return { open: false, why: `someone used this Mac ${m.idle} s ago (need ${idleMin} s idle)` };
   if (m.call) return { open: false, why: `a call is in progress (${m.call.app || '?'}: "${m.call.name}"); someone is using this Mac` };
