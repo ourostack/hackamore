@@ -1195,9 +1195,11 @@ export function lastJsonLine(text) {
 // Local: this process. Command: any shell command that runs `hackamore wire` on that Mac, such as
 // `ssh mini hackamore wire`; the request is one JSON line on its stdin.
 export const localTransport = async (args) => ({ ok: true, ...(await busHandler(args)), via: 'local' });
-export function commandTransport(command, { spawnFn = spawn } = {}) {
+export function commandTransport(command, { spawnFn = spawn, why = null } = {}) {
+  // The other Mac's wire asks for --why too, so the person's reason travels with the request.
+  const remote = why ? `${command} --why '${String(why).replace(/'/g, `'\\''`)}'` : command;
   return (args, { timeoutMs = 15000 } = {}) => new Promise((resolve) => {
-    const p = spawnFn('/bin/sh', ['-c', command], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const p = spawnFn('/bin/sh', ['-c', remote], { stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '', stderr = '';
     const t = setTimeout(() => { p.kill('SIGKILL'); resolve({ ok: false, exit: 1, stdout, message: `no reply within ${timeoutMs} ms from \`${command}\``, via: command }); }, timeoutMs);
     p.stdout.on('data', (b) => { stdout += b; });
@@ -1228,9 +1230,9 @@ export async function callUi(host, args, { transport = localTransport, timeoutMs
 
 export function parseUiArgs(args) {
   const val = (f) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : null; };
-  const flags = ['--record', '--layer', '--idle', '--app', '--via', '--as', '--kvm'];
+  const flags = ['--record', '--layer', '--idle', '--app', '--via', '--as', '--kvm', '--why'];
   const pos = args.filter((x, i) => !x.startsWith('--') && !flags.includes(args[i - 1]));
-  return { pos, record: val('--record'), layer: val('--layer') || 'auto', idle: val('--idle') ? Number(val('--idle')) : 90, app: val('--app'), via: val('--via'), as: val('--as'), kvm: val('--kvm'), menus: !args.includes('--no-menus'), diff: args.includes('--diff') };
+  return { pos, record: val('--record'), layer: val('--layer') || 'auto', idle: val('--idle') ? Number(val('--idle')) : 90, app: val('--app'), via: val('--via'), as: val('--as'), kvm: val('--kvm'), why: val('--why'), menus: !args.includes('--no-menus'), diff: args.includes('--diff') };
 }
 
 // Pixel layer from a KVM, through housesitter: the pixels and keys go there, the gate and the focus checks still come
@@ -1278,7 +1280,7 @@ export async function cmdUiReins(sub, args, deps = {}) {
   const p = parseUiArgs(args);
   const [a1, a2] = p.pos;
   const t0 = Date.now();
-  const transport = deps.transport || (p.via ? commandTransport(p.via) : localTransport);
+  const transport = deps.transport || (p.via ? commandTransport(p.via, { why: p.why }) : localTransport);
   const host = p.as || (p.via ? `via-${createHash('sha256').update(p.via).digest('hex').slice(0, 8)}` : 'local');
   const remote = transport !== localTransport;
   // A caller with its own pixel driver (deps.pixelDriver, which may answer null: no route) drives remote pixels too.

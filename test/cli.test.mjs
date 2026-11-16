@@ -77,7 +77,7 @@ test('journeys: --record appends steps to a JSON file that `journey` replays', (
 
 test('cli: help lists every command and the exit codes, and help --json is the same table', async () => {
   const text = CLI.helpText();
-  for (const c of CLI.COMMANDS) assert.match(text, new RegExp(`hackamore ${c.name}\\b`));
+  for (const c of CLI.COMMANDS) assert.match(text, new RegExp(`^ {2}${c.name}\\b`, 'm'));
   assert.match(text, /2 {2}refused/);
   let printed;
   assert.equal(await CLI.main(['help', '--json'], { print: (o) => { printed = o; } }), 0);
@@ -90,10 +90,10 @@ test('cli: an unknown command is exit 2 with the fix, and bad JSON input is refu
   const u = run(['frobnicate']);
   assert.equal(u.status, 2);
   assert.match(u.stderr, /unknown command "frobnicate"\. Fix: hackamore help/);
-  const j = run(['do', 'click', '{nope']);
+  const j = run(['do', 'click', '{nope', '--why', 'a test']);
   assert.equal(j.status, 2);
   assert.equal(JSON.parse(j.stdout).refused, 'input-invalid');
-  const w = run(['wire'], 'not json\n');
+  const w = run(['wire', '--why', 'a test'], 'not json\n');
   assert.equal(w.status, 2);
   assert.equal(JSON.parse(w.stdout).reply.refused, 'input-invalid');
 });
