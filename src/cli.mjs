@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import * as A from './ax.mjs';
 import * as G from './gate.mjs';
 import { checkArgv } from './kit.mjs';
+import { outcome, outcomeText } from '../lib/ouro-ui/registry/ouro/ax/outcome.ts';
 
 export const EXIT_CODES = [
   { code: 0, name: 'ok', meaning: 'it ran, or the screen was read' },
@@ -115,7 +116,10 @@ export async function readStdin() {
 
 export async function main(argv, { print = (o) => console.log(JSON.stringify(o, null, 2)), stdin = readStdin } = {}) {
   const kit = checkArgv(argv);
-  if (kit.handled) { if (kit.plan) print(kit.plan); return kit.exit; }
+  if (kit.handled) {
+    if (kit.outcome) { if (kit.json) print(kit.outcome); else console.log(outcomeText(kit.outcome, 'hackamore')); }
+    return kit.exit;
+  }
   const [cmd = 'help', ...rest] = kit.argv;
   try {
     if (cmd === 'help' || cmd === '--help' || cmd === '-h') { if (rest.includes('--json')) print(helpJson()); else console.log(helpText()); return 0; }
@@ -136,7 +140,20 @@ export async function main(argv, { print = (o) => console.log(JSON.stringify(o, 
       try { a = JSON.parse(line); } catch { process.stdout.write(JSON.stringify({ code: 2, reply: { ok: false, refused: 'input-invalid', path: '$', message: 'wire reads one JSON request line on stdin' } }) + '\n'); console.error('hackamore: wire: the request on stdin isn\'t JSON. Fix: send one JSON line, such as {"cmd":"ls"}'); return 2; }
       const r = await A.busHandler(a);
       process.stdout.write(r.stdout);
+      if (r.exit !== 0) console.error(`hackamore: wire: ${a.cmd || 'the request'} did not run. Fix: send a request that hackamore help --json lists`);
       return r.exit;
+    }
+    if (cmd === 'gate' && rest.includes('--json') && (rest[0] === undefined || rest[0] === 'check' || rest[0] === '--json')) {
+      const v = G.verdict(G.readMachine());
+      const o = outcome({ action: 'gate check', state: 'done', summary: v.open ? 'The screen is open to an agent now: it is unlocked and nobody has used it for the idle time.' : `The screen is shut to an agent now: ${v.why}.` });
+      print({ ...o, open: v.open, why: v.why });
+      return 0;
+    }
+    if (cmd === 'agent' && rest.includes('--json') && (rest[0] === undefined || rest[0] === 'status' || rest[0] === '--json')) {
+      const AG = await import('./agent.mjs');
+      const st = await AG.status();
+      print({ ...outcome({ action: 'agent status', state: 'done', summary: st.running ? 'The resident Ouro Reins Agent is running.' : 'The resident Ouro Reins Agent is not running. Fix: hackamore agent install' }), running: st.running, installed: st.installed, source: st.source });
+      return 0;
     }
     if (cmd === 'gate') return await G.main(rest.length ? rest : ['check']);
     if (cmd === 'agent') return await (await import('./agent.mjs')).main(rest);

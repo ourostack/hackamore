@@ -17,11 +17,12 @@ test('wire without --why refuses with the fix, and never reads its request', asy
 
 test('wire --dry-run plans without reading its request or acting', async () => {
   const printed = [];
-  const exit = await main(['wire', '--why', 'asked', '--dry-run'], { print: (o) => printed.push(o), stdin: noStdin });
+  const exit = await main(['wire', '--why', 'asked', '--dry-run', '--json'], { print: (o) => printed.push(o), stdin: noStdin });
   assert.equal(exit, 0);
+  assert.equal(printed[0].ax, 'outcome/1');
   assert.equal(printed[0].state, 'planned');
-  assert.equal(printed[0].command, 'wire');
-  assert.match(printed[0].summary, /other people will see it/);
+  assert.equal(printed[0].action, 'wire');
+  assert.match(printed[0].summary, /Other people will see it/);
 });
 
 test('an unknown flag on a declared command is refused before anything runs', () => {
