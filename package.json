@@ -11,7 +11,7 @@
     "./pixels": "./src/pixels.mjs"
   },
   "files": ["bin", "src", "swift", "llms.txt", "README.md", "LICENSE"],
-  "engines": { "node": ">=20" },
+  "engines": { "node": ">=22.18" },
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },

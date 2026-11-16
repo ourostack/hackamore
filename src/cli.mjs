@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as A from './ax.mjs';
 import * as G from './gate.mjs';
+import { checkArgv } from './kit.mjs';
 
 export const EXIT_CODES = [
   { code: 0, name: 'ok', meaning: 'it ran, or the screen was read' },
@@ -53,6 +54,7 @@ export function commandHelp(name) {
     '',
     `Who sees it: ${c.effect === 'others' ? 'other people, as well as the person' : 'only the person'}.`,
     ...(c.note ? wrap(`Effect: ${c.note}.`) : []),
+    ...(c.effect === 'others' ? wrap('Preview it first with --dry-run: it names who will see it and sends nothing. Every run needs --why: who asked you, and what they said.') : []),
     ...(c.example ? ['', `Example: ${c.example}`] : []),
   ].join('\n');
 }
@@ -63,7 +65,7 @@ export function helpText() {
     ...wrap('hackamore: drive any Mac app like an API through its accessibility tree. Replies are JSON; nothing is typed or clicked on a screen a person is using.'),
     '',
     'Commands:',
-    ...COMMANDS.flatMap((c) => wrap(c.summary, ' '.repeat(4 + w), `  hackamore ${c.name.padEnd(w)}  `)),
+    ...COMMANDS.flatMap((c) => wrap(c.summary, ' '.repeat(4 + w), `  ${c.name.padEnd(w)}  `)),
     '',
     ...wrap('Start with `hackamore ls` (read) then `hackamore do <action> \'<json>\'`; every ls reply lists the actions and the exact values each accepts. `hackamore doctor` says what is missing.'),
     '',
@@ -112,7 +114,9 @@ export async function readStdin() {
 }
 
 export async function main(argv, { print = (o) => console.log(JSON.stringify(o, null, 2)), stdin = readStdin } = {}) {
-  const [cmd = 'help', ...rest] = argv;
+  const kit = checkArgv(argv);
+  if (kit.handled) { if (kit.plan) print(kit.plan); return kit.exit; }
+  const [cmd = 'help', ...rest] = kit.argv;
   try {
     if (cmd === 'help' || cmd === '--help' || cmd === '-h') { if (rest.includes('--json')) print(helpJson()); else console.log(helpText()); return 0; }
     if (cmd === '--version' || cmd === 'version') { console.log(JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version); return 0; }
@@ -129,7 +133,7 @@ export async function main(argv, { print = (o) => console.log(JSON.stringify(o, 
     if (cmd === 'wire') {
       const line = (await stdin()).split('\n').find((l) => l.trim());
       let a;
-      try { a = JSON.parse(line); } catch { process.stdout.write(JSON.stringify({ code: 2, reply: { ok: false, refused: 'input-invalid', path: '$', message: 'wire reads one JSON request line on stdin' } }) + '\n'); return 2; }
+      try { a = JSON.parse(line); } catch { process.stdout.write(JSON.stringify({ code: 2, reply: { ok: false, refused: 'input-invalid', path: '$', message: 'wire reads one JSON request line on stdin' } }) + '\n'); console.error('hackamore: wire: the request on stdin isn\'t JSON. Fix: send one JSON line, such as {"cmd":"ls"}'); return 2; }
       const r = await A.busHandler(a);
       process.stdout.write(r.stdout);
       return r.exit;
