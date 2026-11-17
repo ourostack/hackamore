@@ -19,25 +19,27 @@ test('notarize: zips, submits with the credentials, staples only an Accepted ver
   const calls = [];
   const run = (cmd, args) => {
     calls.push([cmd, ...args]);
-    if (args[0] === 'notarytool') return { status: 0, stdout: JSON.stringify({ id: 'sub-1', status: 'Accepted' }) };
+    if (args[0] === 'notarytool') return { status: 0, stdout: JSON.stringify({ id: 'sub-1', ...(args[1] === 'info' ? { status: 'Accepted' } : {}) }) };
     return { status: 0, stdout: '', stderr: '' };
   };
   const env = { APPLE_API_KEY_PATH: '/k.p8', APPLE_API_KEY_ID: 'KID', APPLE_API_ISSUER: 'ISS' };
   assert.deepEqual(notarize('/x/App.app', { run, env }), { ok: true, id: 'sub-1' });
   assert.equal(calls[0][0], '/usr/bin/ditto');
-  assert.ok(calls[1].includes('--key-id') && calls[1].includes('--wait'));
-  assert.deepEqual(calls[2], ['/usr/bin/xcrun', 'stapler', 'staple', '/x/App.app']);
-  const rejected = (cmd, args) => (args[0] === 'notarytool' ? { status: 0, stdout: JSON.stringify({ status: 'Invalid' }) } : { status: 0 });
+  assert.ok(calls[1].includes('--key-id') && !calls[1].includes('--wait'));
+  assert.equal(calls[2][2], 'info');
+  assert.deepEqual(calls[3], ['/usr/bin/xcrun', 'stapler', 'staple', '/x/App.app']);
+  const rejected = (cmd, args) => (args[0] === 'notarytool' ? { status: 0, stdout: JSON.stringify({ id: 'x', status: 'Invalid' }) } : { status: 0 });
   assert.throws(() => notarize('/x/App.app', { run: rejected, env }), /notarization Invalid/);
   assert.throws(() => notarize('/x/App.app', { run, env: {} }), /APPLE_API_KEY_PATH/);
 });
 
 const env = { APPLE_API_KEY_PATH: '/k.p8', APPLE_API_KEY_ID: 'KID', APPLE_API_ISSUER: 'ISS' };
-const fake = (submit) => {
+const fake = (submit, info = () => ({ status: 0, stdout: JSON.stringify({ status: 'Accepted' }) })) => {
   const calls = [];
   const run = (cmd, args) => {
     calls.push(args.slice(0, 2).join(' '));
     if (args[0] === 'notarytool' && args[1] === 'submit') return submit(calls.filter((c) => c === 'notarytool submit').length);
+    if (args[0] === 'notarytool' && args[1] === 'info') return info();
     if (args[0] === 'notarytool' && args[1] === 'log') return { status: 0, stdout: '{\n"issues": [{"message": "The binary is not signed with a valid Developer ID certificate."}]\n}' };
     return { status: 0, stdout: '', stderr: '' };
   };
@@ -53,12 +55,13 @@ test('notarize: no verdict retries with backoff, then fails saying what happened
 });
 
 test('notarize: a transient failure that recovers is accepted', () => {
-  const { run } = fake((n) => (n < 3 ? { status: 1, stdout: '', stderr: 'HTTP 503' } : { status: 0, stdout: JSON.stringify({ id: 's2', status: 'Accepted' }) }));
+  const { run } = fake((n) => (n < 3 ? { status: 1, stdout: '', stderr: 'HTTP 503' } : { status: 0, stdout: JSON.stringify({ id: 's2' }) }));
   assert.deepEqual(notarize('/x/App.app', { run, env, sleep: () => {} }), { ok: true, id: 's2' });
 });
 
 test('notarize: Invalid includes Apple\'s log and is never retried', () => {
-  const { run, calls } = fake(() => ({ status: 0, stdout: JSON.stringify({ id: 'bad-1', status: 'Invalid' }) }));
+  const { run, calls } = fake(() => ({ status: 0, stdout: JSON.stringify({ id: 'bad-1' }) }), () => ({ status: 0, stdout: JSON.stringify({ status: 'Invalid' }) }));
+
   assert.throws(() => notarize('/x/App.app', { run, env, sleep: () => assert.fail('slept') }), (e) => /Invalid/.test(e.message) && /bad-1/.test(e.message) && /not signed with a valid Developer ID/.test(e.message) && /notarytool log bad-1/.test(e.message));
   assert.equal(calls.filter((c) => c === 'notarytool submit').length, 1);
 });
@@ -67,4 +70,16 @@ test('notarize: refused credentials are not retried', () => {
   const { run, calls } = fake(() => ({ status: 1, stdout: '', stderr: 'Error: HTTP status code: 401. Invalid credentials' }));
   assert.throws(() => notarize('/x/App.app', { run, env, sleep: () => {} }), /refused the credentials/);
   assert.equal(calls.filter((c) => c === 'notarytool submit').length, 1);
+});
+
+test('notarize: polls info until Accepted without --wait, and a poll that times out names the id', () => {
+  let polls = 0;
+  const f = fake(() => ({ status: 0, stdout: JSON.stringify({ id: 'p1' }) }), () => ({ status: 0, stdout: JSON.stringify({ status: ++polls < 3 ? 'In Progress' : 'Accepted' }) }));
+  assert.deepEqual(notarize('/x/App.app', { run: f.run, env, sleep: () => {} }), { ok: true, id: 'p1' });
+  assert.equal(polls, 3);
+  let t = 0;
+  const slow = fake(() => ({ status: 0, stdout: JSON.stringify({ id: 'p2' }) }), () => ({ status: 0, stdout: JSON.stringify({ status: 'In Progress' }) }));
+  assert.throws(() => notarize('/x/App.app', { run: slow.run, env: { ...env, HACKAMORE_NOTARIZE_MAX_MS: '100000' }, sleep: () => {}, now: () => (t += 60000) }), (e) => /still pending/.test(e.message) && /p2/.test(e.message) && /HACKAMORE_NOTARIZE_ID=p2/.test(e.message));
+  const resumed = fake(() => assert.fail('resubmitted'));
+  assert.deepEqual(notarize('/x/App.app', { run: resumed.run, env: { ...env, HACKAMORE_NOTARIZE_ID: 'p2' }, sleep: () => {} }), { ok: true, id: 'p2' });
 });
