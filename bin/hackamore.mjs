@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { main } from '../src/cli.mjs';
+await import('../src/ts-hook.mjs');
+const { main } = await import('../src/cli.mjs');
 
 // A reader that closes the pipe early (head, a pager) is not an error.
 process.stdout.on('error', (e) => { if (e.code !== 'EPIPE') throw e; process.exit(process.exitCode ?? 0); });
