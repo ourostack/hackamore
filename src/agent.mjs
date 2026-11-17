@@ -97,23 +97,36 @@ const BACKOFF_MS = [5000, 15000, 45000];
 const AUTH_FAILURE = /\b(401|403)\b|unauthori[sz]ed|invalid credentials|not authorized/i;
 const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-export function notarize(app, { run = sh, env = process.env, sleep = sleepSync } = {}) {
+export function notarize(app, { run = sh, env = process.env, sleep = sleepSync, now = Date.now } = {}) {
   const auth = notaryAuth(env);
   if (!auth) throw new Error('notarization needs APPLE_API_KEY_PATH, APPLE_API_KEY_ID and APPLE_API_ISSUER, or APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, in the environment');
   const zip = `${app}.zip`;
   const z = run('/usr/bin/ditto', ['-c', '-k', '--keepParent', app, zip]);
   if (z.status !== 0) throw new Error(`ditto: ${String(z.stderr).slice(0, 300)}`);
   const tries = 1 + RETRIES;
+  const parse = (r) => { try { return JSON.parse(r.stdout); } catch { return {}; } };
+  const outText = (r) => String(r.stderr || r.stdout || '').trim();
   let j = {}, n = {}, last = '';
-  for (let attempt = 1; attempt <= tries; attempt++) {
-    n = run('/usr/bin/xcrun', ['notarytool', 'submit', zip, ...auth, '--wait', '--output-format', 'json'], { timeout: 1800000 });
-    j = {};
-    try { j = JSON.parse(n.stdout); } catch { /* no verdict: handled below */ }
-    if (j.status) break;
-    const text = String(n.stderr || n.stdout || '').trim();
-    last = `attempt ${attempt}/${tries}: exit ${n.status ?? 'none'}${n.signal ? ` (${n.signal})` : ''}, ${text ? text.slice(0, 300) : 'no output'}`;
-    if (AUTH_FAILURE.test(text) || attempt === tries) break;
+  let id = env.HACKAMORE_NOTARIZE_ID || null;
+  // Submit without --wait so Apple's queue time is ours to poll, and keep the id so a later run can resume it.
+  for (let attempt = 1; !id && attempt <= tries; attempt++) {
+    n = run('/usr/bin/xcrun', ['notarytool', 'submit', zip, ...auth, '--output-format', 'json'], { timeout: 600000 });
+    j = parse(n);
+    if (j.id) { id = j.id; break; }
+    last = `attempt ${attempt}/${tries}: exit ${n.status ?? 'none'}${n.signal ? ` (${n.signal})` : ''}, ${outText(n).slice(0, 300) || 'no output'}`;
+    if (AUTH_FAILURE.test(outText(n)) || attempt === tries) break;
     sleep(BACKOFF_MS[attempt - 1] ?? 45000);
+  }
+  if (id) {
+    const deadline = now() + Number(env.HACKAMORE_NOTARIZE_MAX_MS || 12600000);
+    for (;;) {
+      n = run('/usr/bin/xcrun', ['notarytool', 'info', id, ...auth, '--output-format', 'json'], { timeout: 120000 });
+      j = parse(n);
+      if (j.status === 'Accepted' || j.status === 'Invalid' || j.status === 'Rejected') break;
+      if (now() >= deadline) throw new Error(`notarization still pending after ${Math.round(Number(env.HACKAMORE_NOTARIZE_MAX_MS || 12600000) / 60000)} minutes (submission id: ${id}; last status: ${j.status || 'unknown'}). Apple is slow, not refusing. Fix: rerun with HACKAMORE_NOTARIZE_ID=${id} to resume this submission instead of resubmitting; check status with \`xcrun notarytool info ${id}\` and https://developer.apple.com/system-status/. To keep working, ship the signed, un-notarized build (\`hackamore agent build --developer-id\`, no --notarize).`);
+      sleep(45000);
+    }
+    j.id = id;
   }
   if (j.status !== 'Accepted') {
     const text = String(n.stderr || n.stdout || '').trim().slice(0, 600);

@@ -20,7 +20,7 @@ concurrency:
 jobs:
   agent:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 270
     env:
       CERT_B64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
       CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
