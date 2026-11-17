@@ -203,7 +203,11 @@ interface CliDefBase {
   ambiguous?: Readonly<Record<string, readonly Meaning[]>>;
   /** Words only the person acts on, by the words an agent might try (`unmute`). */
   personOnly?: Readonly<Record<string, PersonOnly>>;
-  /** The overview's one line for a multi-word group ("draft"), when its first command's summary is not it. */
+  /**
+   * The overview's one line for a multi-word group ("draft"); without one, each of its commands is listed by its whole name.
+   *
+   * @claim "each of its commands is listed by its whole name" registry/ouro/ax/help.test.mts verify:testExists(registry/ouro/ax/help.test.mts::a multi-word command with no group summary is listed by its whole name, never as its first word)
+   */
   groups?: Readonly<Record<string, string>>;
   /** Exit code names by outcome state; defaults to DEFAULT_OUTCOME_EXITS. */
   outcomeExits?: OutcomeExits;
