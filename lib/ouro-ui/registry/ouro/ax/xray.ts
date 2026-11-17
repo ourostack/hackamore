@@ -1209,9 +1209,10 @@ async function checkCli(ctx: Context) {
     if (!loud.length) rec.add("cli.voice-off-when-piped", `all ${calls.length} calls`, "pass", `none of ${voiceLines.length} voice lines appears`);
   }
   {
+    // A row names a command by its first word ("draft", for a group with a summary) or its whole name ("peer send").
     const listedHeads = new Set(overviewLines.flatMap((l) => {
-      const m = /^ {2,4}([a-z][\w-]*(?:, [a-z][\w-]*)*):? {2,}\S/.exec(l);
-      return m ? m[1]!.split(", ") : [];
+      const m = /^ {2,4}([a-z][\w-]*(?: [a-z][\w-]*)*(?:, [a-z][\w-]*(?: [a-z][\w-]*)*)*):? {2,}\S/.exec(l);
+      return m ? m[1]!.split(", ").map((n) => n.split(" ")[0]!) : [];
     }));
     const heads = new Set(unique.map((n) => n.split(" ")[0]!));
     const namedBy = new Map<string, string>();
