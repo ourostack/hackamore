@@ -30,6 +30,7 @@ jobs:
           node lib/ouro-ui/registry/ouro/ax/xray.ts --cli "node bin/hackamore.mjs" --inventory inventory.json \
             --conformance --home "$XRAY_HOME" --env "HACKAMORE_ENGINE_STUB=$GITHUB_WORKSPACE/test/fixtures/engine-stub.mjs" --env "RUNNER_TEMP=$RUNNER_TEMP" \
             --guard "node scripts/assert-mock.mjs" --state "help --json" --commit "$GITHUB_SHA" \
+            --sample action=press_key --sample steps='[{"action":"press_key","input":{"key":"a"}}]' --sample file=journey.json \
             --json --md xray/xray.md > xray/report.json
       - name: Gate on the must claims
         if: always()

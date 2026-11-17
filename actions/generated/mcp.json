@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.4",
+  "generator": "ouro-actions 0.17.6",
   "set": "hackamore",
   "tools": [
     {
@@ -12,6 +12,23 @@
           "app": {
             "type": "string",
             "description": "The app to read. Defaults to the front app."
+          },
+          "layer": {
+            "type": "string",
+            "description": "Which layer reads the screen: auto, the accessibility tree (ax) or pixels.",
+            "enum": [
+              "auto",
+              "ax",
+              "pixels"
+            ]
+          },
+          "noMenus": {
+            "type": "boolean",
+            "description": "Leave out the menu bar."
+          },
+          "diff": {
+            "type": "boolean",
+            "description": "Show only what changed since the last read."
           }
         },
         "required": [],
@@ -44,8 +61,13 @@
         "type": "object",
         "properties": {
           "idle": {
-            "type": "integer",
+            "type": "number",
             "description": "How long nobody must have used the Mac. Defaults to 90.",
+            "minimum": 0
+          },
+          "maxMin": {
+            "type": "number",
+            "description": "With wait: how many minutes to wait at most.",
             "minimum": 0
           }
         },
@@ -123,6 +145,19 @@
           "app": {
             "type": "string",
             "description": "The app to act on. Defaults to the front app."
+          },
+          "idle": {
+            "type": "number",
+            "description": "Refuse unless nobody has used the Mac for this many seconds.",
+            "minimum": 0
+          },
+          "record": {
+            "type": "string",
+            "description": "Write the step to this file, for a journey."
+          },
+          "diff": {
+            "type": "boolean",
+            "description": "Show only what changed after the action."
           }
         },
         "required": [
@@ -163,6 +198,19 @@
           "app": {
             "type": "string",
             "description": "The app to act on by default."
+          },
+          "idle": {
+            "type": "number",
+            "description": "Refuse unless nobody has used the Mac for this many seconds.",
+            "minimum": 0
+          },
+          "record": {
+            "type": "string",
+            "description": "Write the steps to this file, for a journey."
+          },
+          "diff": {
+            "type": "boolean",
+            "description": "Show only what changed after the last step."
           }
         },
         "required": [
@@ -217,6 +265,89 @@
           "state": {
             "type": "string",
             "description": "ok, failed or refused, and the screen after the last step run."
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "agent",
+      "title": "Look after the resident agent",
+      "description": "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "With install: the folder to install from."
+          },
+          "force": {
+            "type": "boolean",
+            "description": "With install: replace what is installed."
+          },
+          "developerId": {
+            "type": "boolean",
+            "description": "With build: sign with a Developer ID certificate."
+          },
+          "adHoc": {
+            "type": "boolean",
+            "description": "With build: sign ad hoc."
+          },
+          "notarize": {
+            "type": "boolean",
+            "description": "With build: notarize the app."
+          },
+          "personHere": {
+            "type": "boolean",
+            "description": "With grant: only with a person at the Mac."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "description": "True when the resident agent is running."
+          }
+        },
+        "required": [
+          "running"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "wire",
+      "title": "Serve one request for another Mac",
+      "description": "Serve one JSON request line from stdin for another Mac that drives this one with --via, which other people may see. A person says yes first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "description": "The reply line: its code, its reply and the screen."
           }
         },
         "required": [

@@ -155,14 +155,11 @@ export async function waitOpen({ maxMs = 30 * 60000, everyMs = 15000, idleMin = 
 
 // ---------- CLI (runs on the Mac being gated) ----------
 
-export async function main(argv) {
-  const [cmd = 'check', ...rest] = argv;
-  const json = rest.includes('--json');
-  const num = (f, d) => { const i = rest.indexOf(f); return i >= 0 ? Number(rest[i + 1]) : d; };
-  const idleMin = num('--idle', IDLE_MIN);
+export async function main({ action: cmd = 'check', idle, 'max-min': maxMin, json = false } = {}) {
+  const idleMin = idle ?? IDLE_MIN;
   const say = (o) => console.log(json ? JSON.stringify(o) : o.msg);
   if (cmd === 'wait') {
-    const r = await waitOpen({ maxMs: num('--max-min', 30) * 60000, idleMin, say: json ? () => {} : (t) => console.error(t) });
+    const r = await waitOpen({ maxMs: (maxMin ?? 30) * 60000, idleMin, say: json ? () => {} : (t) => console.error(t) });
     say({ ok: r.open, msg: `${r.open ? 'OPEN' : 'CLOSED'}: ${r.last.why}`, polls: r.polls });
     return r.open ? 0 : 1;
   }

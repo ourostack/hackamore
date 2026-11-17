@@ -1,87 +1,15 @@
 // The hackamore command line: ls, do, batch and journey drive an app; wire carries them for another Mac; gate, agent and
-// doctor look after the Mac that holds the grant. Replies are JSON (Reins' shape); help is text, and `help --json` is
-// the same table for a machine. Exit codes: 0 ok, 1 failed, 2 refused or a bad request (the reply says which).
+// doctor look after the Mac that holds the grant. The commands, flags and help are the kit's (src/kit.mjs); replies are
+// JSON (Reins' shape). Exit codes: 0 ok, 1 failed, 2 refused or a bad request (the reply says which).
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import * as A from './ax.mjs';
 import * as G from './gate.mjs';
-import { checkArgv } from './kit.mjs';
+import { cli, COMMAND_NAMES, planOutcome } from './kit.mjs';
+import { parse } from '../lib/ouro-ui/registry/ouro/ax/command.ts';
+import { runCli } from '../lib/ouro-ui/registry/ouro/ax/cli.ts';
+import { isAxError } from '../lib/ouro-ui/registry/ouro/ax/problem.ts';
 import { outcome, outcomeText } from '../lib/ouro-ui/registry/ouro/ax/outcome.ts';
-
-export const EXIT_CODES = [
-  { code: 0, name: 'ok', meaning: 'it ran, or the screen was read' },
-  { code: 1, name: 'failed', meaning: 'it was allowed but did not work (action-failed, until-not-met), or something here is broken' },
-  { code: 2, name: 'refused', meaning: 'nothing ran: action-unavailable, input-invalid, person-active, app-protected, screen-locked, permission-missing, or a malformed command line' },
-];
-
-export const COMMANDS = [
-  { name: 'ls', effect: 'private', args: '[app] [--layer auto|ax|pixels] [--no-menus] [--diff]', summary: "read the screen: the front app (or [app]) as elements, plus the actions that make sense on it right now, each with a schema narrowed to what is there", example: 'hackamore ls Finder', note: 'none' },
-  { name: 'do', effect: 'others', args: "<action> ['<json input>'] [--app A] [--idle 90] [--record <file>] [--diff]", summary: 'run one action (click, set_value, type_text, press_key, menu, scroll, perform, open_app, activate, type_secret) and get the screen after it', example: `hackamore do click '{"element":"button[Back]"}'`, note: 'changes the app on the Mac, when nobody is using it' },
-  { name: 'batch', effect: 'others', args: "'<json array of {action,input,until?,app?}>' [--app A] [--record <file>]", summary: 'many steps in one call; a step\'s until ({"@field.value":"42"}) is checked on the Mac, and the run stops at the first refusal or unmet until', example: `hackamore batch '[{"action":"click","input":{"element":"button[7]"}}]'`, note: 'as do, for each step' },
-  { name: 'journey', effect: 'others', args: '<file>', summary: 'replay a journey recorded with --record as one batch', example: 'hackamore journey form.json', note: 'as batch' },
-  { name: 'wire', effect: 'others', protocol: true, args: '', summary: 'serve one request: read a JSON line from stdin, print the reply line. This is what --via runs on the other Mac', example: `echo '{"cmd":"ls"}' | hackamore wire`, note: 'as the request asks' },
-  { name: 'gate', effect: 'private', args: '[check|wait] [--idle 90] [--max-min 30] [--json]', summary: 'may an agent touch this screen now: unlocked, and nobody has used it for the idle time', example: 'hackamore gate check', note: 'none' },
-  { name: 'agent', effect: 'private', args: 'status|install|build|grant [--person-here]', summary: 'the resident Ouro Reins Agent that holds the Accessibility grant: is it running, install it, grant it (only with a person at the Mac)', example: 'hackamore agent status', note: 'install and grant change this Mac' },
-  { name: 'doctor', effect: 'private', args: '', summary: 'what this Mac has: the agent, the grant, the gate, the config, the protected apps, and the next step if something is missing', example: 'hackamore doctor', note: 'none' },
-  { name: 'help', effect: 'private', args: '[--json]', summary: 'this list', example: 'hackamore help --json', note: 'none' },
-];
-
-export const GLOBAL_FLAGS = [
-  { flag: '--via <command>', meaning: "drive another Mac: the command runs `hackamore wire` there, e.g. 'ssh mini hackamore wire'" },
-  { flag: '--as <label>', meaning: 'name the Mac in replies and the screen cache (default: local, or a short hash of --via)' },
-  { flag: '--kvm <name>', meaning: "use the pixels of a housesitter KVM for that Mac (needs @ouro.bot/housesitter)" },
-];
-
-// Help lines stay within this many columns, so they wrap the same way in a terminal and a transcript.
-const WIDTH = 96;
-export function wrap(text, indent = '', lead = indent) {
-  const out = [];
-  let line = '';
-  for (const word of text.split(' ')) {
-    if (line && (line + ' ' + word).length > WIDTH) { out.push(line); line = indent + word; } else line = line ? `${line} ${word}` : (out.length ? indent : lead) + word;
-  }
-  if (line) out.push(line);
-  return out;
-}
-
-const AMBIGUOUS_VERBS = ['edit', 'delete', 'remove'];
-
-export function commandHelp(name) {
-  const c = COMMANDS.find((x) => x.name === name);
-  return [
-    `hackamore ${c.name}${c.args ? ` ${c.args}` : ''}`,
-    '',
-    ...wrap(c.summary, '  '),
-    '',
-    `Who sees it: ${c.effect === 'others' ? 'other people, as well as the person' : 'only the person'}.`,
-    ...(c.note ? wrap(`Effect: ${c.note}.`) : []),
-    ...(c.effect === 'others' ? wrap('Preview it first with --dry-run: it names who will see it and sends nothing. Every run needs --why: who asked you, and what they said.') : []),
-    ...(c.example ? ['', `Example: ${c.example}`] : []),
-  ].join('\n');
-}
-
-export function helpText() {
-  const w = Math.max(...COMMANDS.map((c) => c.name.length));
-  return [
-    ...wrap('hackamore: drive any Mac app like an API through its accessibility tree. Replies are JSON; nothing is typed or clicked on a screen a person is using.'),
-    '',
-    'Commands:',
-    ...COMMANDS.flatMap((c) => wrap(c.summary, ' '.repeat(4 + w), `  ${c.name.padEnd(w)}  `)),
-    '',
-    ...wrap('Start with `hackamore ls` (read) then `hackamore do <action> \'<json>\'`; every ls reply lists the actions and the exact values each accepts. `hackamore doctor` says what is missing.'),
-    '',
-    'Flags for ls, do, batch and journey:',
-    ...GLOBAL_FLAGS.flatMap((f) => wrap(f.meaning, ' '.repeat(4 + f.flag.length), `  ${f.flag}  `)),
-    '',
-    'Exit codes:',
-    ...EXIT_CODES.flatMap((e) => wrap(e.meaning, '      ', `  ${e.code}  ${e.name}: `)),
-    '',
-    'Examples:',
-    ...COMMANDS.filter((c) => c.example).map((c) => `  ${c.example}`),
-  ].join('\n');
-}
-
-export const helpJson = () => ({ tool: 'hackamore', commands: COMMANDS, flags: GLOBAL_FLAGS, exitCodes: EXIT_CODES, exit_codes: EXIT_CODES });
 
 async function doctor() {
   const AG = await import('./agent.mjs');
@@ -114,27 +42,34 @@ export async function readStdin() {
   return s;
 }
 
-export async function main(argv, { print = (o) => console.log(JSON.stringify(o, null, 2)), stdin = readStdin } = {}) {
-  const kit = checkArgv(argv);
-  if (kit.handled) {
-    if (kit.outcome) { if (kit.json) print(kit.outcome); else console.log(outcomeText(kit.outcome, 'hackamore')); }
-    return kit.exit;
-  }
-  const [cmd = 'help', ...rest] = kit.argv;
+const kitIo = () => ({ stdout: process.stdout, stderr: process.stderr });
+
+export async function main(argv, { print: out = (o) => console.log(JSON.stringify(o, null, process.stdout.isTTY ? 2 : undefined)), stdin = readStdin } = {}) {
+  // A refused or failed reply also names its problem and fix on stderr, where a caller that watches the error stream looks.
+  const print = (o) => { out(o); if (o && o.ok === false) { const e = o.error; const m = e?.message || (e?.problem && `${e.problem}. Fix: ${e.fix}`) || o.message; if (m) console.error(`hackamore: ${m}`); } };
+  if (argv[0] === '--version' || argv[0] === 'version') { console.log(JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version); return 0; }
+  const args = argv.length ? argv : ['help'];
+  let parsed;
   try {
-    if (cmd === 'help' || cmd === '--help' || cmd === '-h') { if (rest.includes('--json')) print(helpJson()); else console.log(helpText()); return 0; }
-    if (cmd === '--version' || cmd === 'version') { console.log(JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')).version); return 0; }
-    if (COMMANDS.some((c) => c.name === cmd) && rest.includes('--help')) { console.log(commandHelp(cmd)); return 0; }
-    if (AMBIGUOUS_VERBS.includes(cmd)) throw new Error(`usage: "${cmd}" doesn't act on its own. Fix: to act on an app, use hackamore do <action> '<json>'; to read it first, use hackamore ls`);
-    if (cmd === 'ls' || cmd === 'do' || cmd === 'batch') return await A.cmdUiReins(cmd, rest, { print });
-    if (cmd === 'journey') {
-      const f = rest.find((a) => !a.startsWith('--'));
-      if (!f) throw new Error('usage: hackamore journey <file> [--via <command>] [--as <label>]');
+    parsed = parse(cli, args);
+  } catch (e) {
+    if (!isAxError(e)) throw e;
+    // A --dry-run answers with a plan even when the target is not named yet.
+    if (args.includes('--dry-run') && e.shape.code === 'missing-arg' && COMMAND_NAMES.includes(args[0])) return plan(args[0], args, print);
+    return runCli(cli, args, kitIo());
+  }
+  if (parsed.kind === 'help') return runCli(cli, args, kitIo());
+  const { input } = parsed;
+  const name = parsed.command.name;
+  if (input['dry-run'] === true) return plan(name, args, print);
+  try {
+    if (name === 'ls' || name === 'do' || name === 'batch') return await A.cmdUiReins(name, input, { print });
+    if (name === 'journey') {
       let steps;
-      try { steps = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { print({ ok: false, error: { code: 'input-invalid', exit: 2, thing: 'journey', problem: `${f} isn't a journey file (a JSON array of steps): ${e.message}`, fix: 'record one with: hackamore do <action> \'<json>\' --record <file>' } }); return 2; }
-      return await A.cmdUiReins('batch', [JSON.stringify(steps), ...rest.filter((a) => a !== f)], { print });
+      try { steps = JSON.parse(fs.readFileSync(input.file, 'utf8')); } catch (e) { print({ ok: false, error: { code: 'input-invalid', exit: 2, thing: 'journey', problem: `${input.file} isn't a journey file (a JSON array of steps): ${e.message}`, fix: 'record one with: hackamore do <action> \'<json>\' --record <file>' } }); return 2; }
+      return await A.cmdUiReins('batch', { ...input, steps: JSON.stringify(steps) }, { print });
     }
-    if (cmd === 'wire') {
+    if (name === 'wire') {
       const line = (await stdin()).split('\n').find((l) => l.trim());
       let a;
       try { a = JSON.parse(line); } catch { process.stdout.write(JSON.stringify({ code: 2, reply: { ok: false, refused: 'input-invalid', path: '$', message: 'wire reads one JSON request line on stdin' } }) + '\n'); console.error('hackamore: wire: the request on stdin isn\'t JSON. Fix: send one JSON line, such as {"cmd":"ls"}'); return 2; }
@@ -143,25 +78,31 @@ export async function main(argv, { print = (o) => console.log(JSON.stringify(o, 
       if (r.exit !== 0) console.error(`hackamore: wire: ${a.cmd || 'the request'} did not run. Fix: send a request that hackamore help --json lists`);
       return r.exit;
     }
-    if (cmd === 'gate' && rest.includes('--json') && (rest[0] === undefined || rest[0] === 'check' || rest[0] === '--json')) {
+    if (name === 'gate' && parsed.json && (input.action === undefined || input.action === 'check')) {
       const v = G.verdict(G.readMachine());
       const o = outcome({ action: 'gate check', state: 'done', summary: v.open ? 'The screen is open to an agent now: it is unlocked and nobody has used it for the idle time.' : `The screen is shut to an agent now: ${v.why}.` });
       print({ ...o, open: v.open, why: v.why });
       return 0;
     }
-    if (cmd === 'agent' && rest.includes('--json') && (rest[0] === undefined || rest[0] === 'status' || rest[0] === '--json')) {
+    if (name === 'agent' && parsed.json && (input.action === undefined || input.action === 'status')) {
       const AG = await import('./agent.mjs');
       const st = await AG.status();
       print({ ...outcome({ action: 'agent status', state: 'done', summary: st.running ? 'The resident Ouro Reins Agent is running.' : 'The resident Ouro Reins Agent is not running. Fix: hackamore agent install' }), running: st.running, installed: st.installed, source: st.source });
       return 0;
     }
-    if (cmd === 'gate') return await G.main(rest.length ? rest : ['check']);
-    if (cmd === 'agent') return await (await import('./agent.mjs')).main(rest);
-    if (cmd === 'doctor') { const d = await doctor(); print(d); return d.ok ? 0 : 1; }
-    throw new Error(`usage: unknown command "${cmd}". Fix: hackamore help`);
+    if (name === 'gate') return await G.main({ ...input, json: parsed.json });
+    if (name === 'agent') return await (await import('./agent.mjs')).main(input);
+    if (name === 'doctor') { const d = await doctor(); print(d); return d.ok ? 0 : 1; }
+    throw new Error(`usage: unknown command "${name}". Fix: hackamore help`);
   } catch (e) {
     const usage = /^usage:/.test(e.message);
     console.error(usage ? `hackamore: ${e.message.replace(/^usage:\s*/, '')}` : `hackamore: ${e.message}`);
     return usage ? 2 : 1;
   }
+}
+
+function plan(name, args, print) {
+  const o = planOutcome(name);
+  if (args.includes('--json')) print(o); else console.log(outcomeText(o, 'hackamore'));
+  return 0;
 }

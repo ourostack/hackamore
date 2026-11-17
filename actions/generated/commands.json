@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.4",
+  "generator": "ouro-actions 0.17.6",
   "set": "hackamore",
   "tool": "hackamore",
   "commands": [
@@ -12,12 +12,29 @@
         "app": {
           "type": "string",
           "description": "The app to read. Defaults to the front app."
+        },
+        "layer": {
+          "type": "enum",
+          "description": "Which layer reads the screen: auto, the accessibility tree (ax) or pixels.",
+          "values": [
+            "auto",
+            "ax",
+            "pixels"
+          ]
+        },
+        "no-menus": {
+          "type": "boolean",
+          "description": "Leave out the menu bar."
+        },
+        "diff": {
+          "type": "boolean",
+          "description": "Show only what changed since the last read."
         }
       },
       "output": "{ elements }"
     },
     {
-      "name": "gate check",
+      "name": "gate",
       "summary": "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
       "effect": "private",
       "readOnly": true,
@@ -25,6 +42,11 @@
         "idle": {
           "type": "number",
           "description": "How long nobody must have used the Mac. Defaults to 90.",
+          "min": 0
+        },
+        "max-min": {
+          "type": "number",
+          "description": "With wait: how many minutes to wait at most.",
           "min": 0
         }
       },
@@ -56,6 +78,19 @@
         "app": {
           "type": "string",
           "description": "The app to act on. Defaults to the front app."
+        },
+        "idle": {
+          "type": "number",
+          "description": "Refuse unless nobody has used the Mac for this many seconds.",
+          "min": 0
+        },
+        "record": {
+          "type": "string",
+          "description": "Write the step to this file, for a journey."
+        },
+        "diff": {
+          "type": "boolean",
+          "description": "Show only what changed after the action."
         }
       },
       "output": "{ state }"
@@ -75,6 +110,19 @@
         "app": {
           "type": "string",
           "description": "The app to act on by default."
+        },
+        "idle": {
+          "type": "number",
+          "description": "Refuse unless nobody has used the Mac for this many seconds.",
+          "min": 0
+        },
+        "record": {
+          "type": "string",
+          "description": "Write the steps to this file, for a journey."
+        },
+        "diff": {
+          "type": "boolean",
+          "description": "Show only what changed after the last step."
         }
       },
       "output": "{ state }"
@@ -90,6 +138,44 @@
           "required": true
         }
       ],
+      "output": "{ state }"
+    },
+    {
+      "name": "agent",
+      "summary": "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
+      "effect": "private",
+      "flags": {
+        "from": {
+          "type": "string",
+          "description": "With install: the folder to install from."
+        },
+        "force": {
+          "type": "boolean",
+          "description": "With install: replace what is installed."
+        },
+        "developer-id": {
+          "type": "boolean",
+          "description": "With build: sign with a Developer ID certificate."
+        },
+        "ad-hoc": {
+          "type": "boolean",
+          "description": "With build: sign ad hoc."
+        },
+        "notarize": {
+          "type": "boolean",
+          "description": "With build: notarize the app."
+        },
+        "person-here": {
+          "type": "boolean",
+          "description": "With grant: only with a person at the Mac."
+        }
+      },
+      "output": "{ running }"
+    },
+    {
+      "name": "wire",
+      "summary": "Serve one JSON request line from stdin for another Mac that drives this one with --via, which other people may see. A person says yes first.",
+      "effect": "others",
       "output": "{ state }"
     }
   ],

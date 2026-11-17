@@ -220,14 +220,12 @@ export async function grant({ personHere = false, screen = true } = {}) {
   return { ok: Boolean(r.ok), ax: r.ax ?? null, screen_capture: r.screen_capture ?? null, next: r.ax ? null : 'macOS showed its dialog: Open System Settings, turn on "Ouro Reins Agent", enter the Mac\'s password there' };
 }
 
-export async function main(argv) {
-  const [sub = 'status', ...rest] = argv;
-  const val = (f) => { const i = rest.indexOf(f); return i >= 0 ? rest[i + 1] : null; };
+export async function main({ action: sub = 'status', from = null, force, 'developer-id': developerId, 'ad-hoc': adHoc, notarize, 'person-here': personHere } = {}) {
   let r;
-  if (sub === 'build') r = build({ developerId: rest.includes('--developer-id') ? true : rest.includes('--ad-hoc') ? false : 'auto', notarizeIt: rest.includes('--notarize') });
-  else if (sub === 'install') r = await install({ force: rest.includes('--force'), from: val('--from') });
+  if (sub === 'build') r = build({ developerId: developerId ? true : adHoc ? false : 'auto', notarizeIt: Boolean(notarize) });
+  else if (sub === 'install') r = await install({ force: Boolean(force), from });
   else if (sub === 'status') r = await status();
-  else if (sub === 'grant') r = await grant({ personHere: rest.includes('--person-here') });
+  else if (sub === 'grant') r = await grant({ personHere: Boolean(personHere) });
   else throw new Error('usage: hackamore agent build [--developer-id|--ad-hoc] [--notarize] | install [--from <dir>] [--force] | status | grant --person-here');
   console.log(JSON.stringify({ machine: os.hostname(), sub, ...r }));
   return r.ok ? 0 : 1;
