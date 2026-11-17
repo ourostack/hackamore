@@ -15,6 +15,8 @@
   "files": [
     "bin",
     "src",
+    "lib",
+    "actions",
     "swift",
     "llms.txt",
     "README.md",
