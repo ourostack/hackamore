@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Every command is declared in `actions/hackamore.actions.mts` (now including `agent` and `wire`), and the kit parses every command line. The legacy dispatch table, the pass-through dispatcher and `parseUiArgs` are gone. Flags and exit codes are unchanged.
+- Breaking for library users: `cmdUiReins(sub, input, deps)` takes the parsed input object, not an argv array. `help --json` has the kit's shape and no longer carries `exit_codes` (use `exitCodes`).
+- A failed `ls`, `do` or `batch` reply also writes its problem and fix on stderr.
 - Breaking: needs Node 22.18 or later, because the vendored Ouro AX kit runs its TypeScript as it is. Node 20 is no longer tested.
 - Breaking: `do`, `batch`, `journey` and `wire` need `--why` (who asked you, and what they said). `--dry-run` previews any of them without acting. `--via` forwards the `--why` to the other Mac's `wire`.
 - `help --json` names each command's effect (`private` or `others`) and the exit codes (`exitCodes`); `exit_codes` is kept.

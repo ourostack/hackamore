@@ -1228,13 +1228,6 @@ export async function callUi(host, args, { transport = localTransport, timeoutMs
   return { name: host, via: r.via, exit: j.code, reply: j.reply, view: view ? unpack(view) : null, wire: j.screen, server_ms: j.ms };
 }
 
-export function parseUiArgs(args) {
-  const val = (f) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : null; };
-  const flags = ['--record', '--layer', '--idle', '--app', '--via', '--as', '--kvm', '--why'];
-  const pos = args.filter((x, i) => !x.startsWith('--') && !flags.includes(args[i - 1]));
-  return { pos, record: val('--record'), layer: val('--layer') || 'auto', idle: val('--idle') ? Number(val('--idle')) : 90, app: val('--app'), via: val('--via'), as: val('--as'), kvm: val('--kvm'), why: val('--why'), menus: !args.includes('--no-menus'), diff: args.includes('--diff') };
-}
-
 // Pixel layer from a KVM, through housesitter: the pixels and keys go there, the gate and the focus checks still come
 // from the Mac through the transport.
 async function viaKvm(host, cmd, p, transport, deps = {}) {
@@ -1265,8 +1258,6 @@ async function viaKvm(host, cmd, p, transport, deps = {}) {
   }
 }
 
-export const USAGE = "usage: hackamore ls [app] [--layer auto|ax|pixels] [--no-menus] [--diff]\n       hackamore do <action> '<json>' [--app A] [--record <file>] [--idle 90] [--diff]\n       hackamore batch '<json array of {action,input,until?,app?}>' [--record <file>] [--diff]\n       add --via '<command that runs `hackamore wire` on the Mac>' (for example 'ssh mini hackamore wire') to drive another Mac, and --kvm <name> for the pixels of a housesitter KVM";
-
 // A recorded journey is a JSON array of steps; `hackamore journey <file>` replays it as one batch.
 export function recordStep(file, step) {
   let steps = [];
@@ -1276,9 +1267,10 @@ export function recordStep(file, step) {
   return { file, steps: steps.length };
 }
 
-export async function cmdUiReins(sub, args, deps = {}) {
-  const p = parseUiArgs(args);
-  const [a1, a2] = p.pos;
+// `input` is what the kit parsed for the command (src/kit.mjs): ls's app, do's action and input, batch's steps, and the flags.
+export async function cmdUiReins(sub, input, deps = {}) {
+  const p = { record: input.record ?? null, layer: input.layer ?? 'auto', idle: input.idle ?? 90, app: sub === 'ls' ? null : input.app ?? null, via: input.via ?? null, as: input.as ?? null, kvm: input.kvm ?? null, why: input.why ?? null, menus: input['no-menus'] !== true, diff: input.diff === true };
+  const [a1, a2] = sub === 'ls' ? [input.app] : sub === 'do' ? [input.action, input.input] : [input.steps];
   const t0 = Date.now();
   const transport = deps.transport || (p.via ? commandTransport(p.via, { why: p.why }) : localTransport);
   const host = p.as || (p.via ? `via-${createHash('sha256').update(p.via).digest('hex').slice(0, 8)}` : 'local');
@@ -1287,16 +1279,15 @@ export async function cmdUiReins(sub, args, deps = {}) {
   const remotePixels = Boolean(p.kvm || (deps.pixelDriver && remote && p.layer === 'pixels'));
   const call = deps.call || ((h, a) => callUi(h, a, { transport }));
   const print = deps.print || ((o) => console.log(JSON.stringify(o, null, 2)));
-  const parse = (txt, what) => { try { return { v: JSON.parse(txt) }; } catch { return { err: { ok: false, refused: 'input-invalid', path: '$', message: `$: ${what} isn't JSON: ${String(txt).slice(0, 80)}` } }; } };
+  const parse = (txt, what) => { try { return { v: JSON.parse(txt) }; } catch { return { err: { ok: false, refused: 'input-invalid', path: '$', message: `$: ${what} isn't JSON: ${String(txt).slice(0, 80)}. Fix: pass JSON, and hackamore ls lists the actions` } }; } };
   let inp = null, st = null;
   if (sub === 'do') {
-    if (!a1) throw new Error(USAGE);
     inp = a2 ? parse(a2, 'the input') : { v: {} };
     if (inp.err) { print(inp.err); return 2; }
   } else if (sub === 'batch') {
     st = a1 ? parse(a1, 'the steps') : { err: { ok: false, refused: 'input-invalid', path: '$', message: 'batch takes a JSON array of steps' } };
     if (st.err) { print(st.err); return 2; }
-  } else if (sub !== 'ls') throw new Error(USAGE);
+  }
   const once = async () => {
     let x = null;
     if (sub === 'ls') {

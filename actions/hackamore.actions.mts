@@ -11,6 +11,9 @@ export const screenRead = defineAction({
   agent: "Read the screen of the front app, or of the named app, and the actions it accepts. Read-only.",
   input: {
     app: field.string({ label: "App", description: "The app to read. Defaults to the front app.", optional: true }),
+    layer: field.enum({ label: "Layer", description: "Which layer reads the screen: auto, the accessibility tree (ax) or pixels.", optional: true, values: ["auto", "ax", "pixels"] }),
+    noMenus: field.boolean({ label: "No menus", description: "Leave out the menu bar.", optional: true }),
+    diff: field.boolean({ label: "Diff", description: "Show only what changed since the last read.", optional: true }),
   },
   output: {
     elements: field.string({ label: "Elements", description: "JSON: the screen's elements and the actions each accepts." }),
@@ -25,13 +28,14 @@ export const gateCheck = defineAction({
   description: "Check whether an agent may touch this screen now: unlocked, and nobody has used it for the idle time.",
   agent: "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
   input: {
-    idle: field.integer({ label: "Idle seconds", description: "How long nobody must have used the Mac. Defaults to 90.", optional: true, min: 0 }),
+    idle: field.number({ label: "Idle seconds", description: "How long nobody must have used the Mac. Defaults to 90.", optional: true, min: 0 }),
+    maxMin: field.number({ label: "Wait at most", description: "With wait: how many minutes to wait at most.", optional: true, min: 0 }),
   },
   output: {
     open: field.boolean({ label: "Open", description: "True when an agent may touch the screen now." }),
     why: field.string({ label: "Why", description: "The reason the gate is open or shut." }),
   },
-  cli: "gate check",
+  cli: "gate",
 });
 
 export const doctorRead = defineAction({
@@ -57,6 +61,9 @@ export const doAction = defineAction({
     action: field.string({ label: "Action", description: "The action to run, as ls lists it.", arg: true }),
     inputJson: field.string({ label: "Input", description: "The action's input as a JSON object.", optional: true }),
     app: field.string({ label: "App", description: "The app to act on. Defaults to the front app.", optional: true }),
+    idle: field.number({ label: "Idle seconds", description: "Refuse unless nobody has used the Mac for this many seconds.", optional: true, min: 0 }),
+    record: field.string({ label: "Record to", description: "Write the step to this file, for a journey.", optional: true }),
+    diff: field.boolean({ label: "Diff", description: "Show only what changed after the action.", optional: true }),
   },
   output: {
     state: field.string({ label: "State", description: "ok, failed or refused, and the screen after the action." }),
@@ -73,6 +80,9 @@ export const batchAction = defineAction({
   input: {
     steps: field.string({ label: "Steps", description: "A JSON array of {action, input, until?, app?} steps.", arg: true }),
     app: field.string({ label: "App", description: "The app to act on by default.", optional: true }),
+    idle: field.number({ label: "Idle seconds", description: "Refuse unless nobody has used the Mac for this many seconds.", optional: true, min: 0 }),
+    record: field.string({ label: "Record to", description: "Write the steps to this file, for a journey.", optional: true }),
+    diff: field.boolean({ label: "Diff", description: "Show only what changed after the last step.", optional: true }),
   },
   output: {
     state: field.string({ label: "State", description: "ok, failed or refused, and the screen after the last step run." }),
@@ -95,4 +105,37 @@ export const journeyAction = defineAction({
   cli: "journey",
 });
 
-export default defineActions("hackamore", [screenRead, gateCheck, doctorRead, doAction, batchAction, journeyAction], { tool: "hackamore" });
+export const agentAction = defineAction({
+  id: "agent",
+  consent: "write",
+  label: "Look after the resident agent",
+  description: "Say whether the resident Ouro Reins Agent that holds the Accessibility grant is running; with a word, build it, install it, or raise the grant dialog (only with a person at the Mac).",
+  agent: "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
+  input: {
+    from: field.string({ label: "From", description: "With install: the folder to install from.", optional: true }),
+    force: field.boolean({ label: "Force", description: "With install: replace what is installed.", optional: true }),
+    developerId: field.boolean({ label: "Developer ID", description: "With build: sign with a Developer ID certificate.", optional: true }),
+    adHoc: field.boolean({ label: "Ad hoc", description: "With build: sign ad hoc.", optional: true }),
+    notarize: field.boolean({ label: "Notarize", description: "With build: notarize the app.", optional: true }),
+    personHere: field.boolean({ label: "Person here", description: "With grant: only with a person at the Mac.", optional: true }),
+  },
+  output: {
+    running: field.boolean({ label: "Running", description: "True when the resident agent is running." }),
+  },
+  cli: "agent",
+});
+
+export const wireAction = defineAction({
+  id: "wire",
+  consent: "consequential",
+  label: "Serve one request for another Mac",
+  description: "Serve one request: read a JSON line from stdin and print the reply line. This is what --via runs on the other Mac.",
+  agent: "Serve one JSON request line from stdin for another Mac that drives this one with --via, which other people may see. A person says yes first.",
+  input: {},
+  output: {
+    state: field.string({ label: "State", description: "The reply line: its code, its reply and the screen." }),
+  },
+  cli: "wire",
+});
+
+export default defineActions("hackamore", [screenRead, gateCheck, doctorRead, doAction, batchAction, journeyAction, agentAction, wireAction], { tool: "hackamore" });

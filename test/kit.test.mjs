@@ -2,9 +2,10 @@
 // dry run plans without sending, and a --via Mac gets the person's --why with its request.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkArgv } from '../src/kit.mjs';
+import { parse } from '../lib/ouro-ui/registry/ouro/ax/command.ts';
+import { cli } from '../src/kit.mjs';
 import { main } from '../src/cli.mjs';
-import { commandTransport, parseUiArgs } from '../src/ax.mjs';
+import { commandTransport } from '../src/ax.mjs';
 
 const noStdin = async () => { throw new Error('stdin must not be read'); };
 
@@ -25,17 +26,36 @@ test('wire --dry-run plans without reading its request or acting', async () => {
   assert.match(printed[0].summary, /Other people will see it/);
 });
 
-test('an unknown flag on a declared command is refused before anything runs', () => {
-  const r = checkArgv(['ls', '--no-such-flag']);
-  assert.equal(r.handled, true);
-  assert.equal(r.exit, 2);
+test('an unknown flag on a declared command is refused before anything runs', async () => {
+  assert.equal(await main(['ls', '--no-such-flag']), 2);
 });
 
-test('a command other people see keeps --why for the legacy parser, and a read passes through', () => {
-  assert.equal(checkArgv(['do', 'click', '--why', 'Jo asked']).handled, false);
-  assert.deepEqual(checkArgv(['do', 'click', '--why', 'Jo asked']).argv, ['do', 'click', '--why', 'Jo asked']);
-  assert.deepEqual(parseUiArgs(['click', '--why', 'Jo asked']).pos, ['click']);
-  assert.equal(parseUiArgs(['click', '--why', 'Jo asked']).why, 'Jo asked');
+const input = (...argv) => parse(cli, argv).input;
+
+test('every command parses its words and flags into the input the dispatcher reads', () => {
+  assert.deepEqual(input('ls'), {});
+  assert.deepEqual(input('ls', 'Finder', '--layer', 'pixels', '--no-menus', '--diff', '--as', 'far'), { app: 'Finder', layer: 'pixels', 'no-menus': true, diff: true, as: 'far' });
+  assert.deepEqual(input('do', 'click', '{"a":1}', '--why', 'Jo asked', '--app', 'Finder', '--idle', '5', '--record', 'j.json', '--diff', '--via', 'ssh mini hackamore wire', '--kvm', 'mini'),
+    { action: 'click', input: '{"a":1}', why: 'Jo asked', app: 'Finder', idle: 5, record: 'j.json', diff: true, via: 'ssh mini hackamore wire', kvm: 'mini' });
+  assert.deepEqual(input('batch', '[]', '--why', 'a', '--app', 'Mail', '--idle', '0', '--record', 'b.json', '--diff'), { steps: '[]', why: 'a', app: 'Mail', idle: 0, record: 'b.json', diff: true });
+  assert.deepEqual(input('journey', 'j.json', '--why', 'a', '--as', 'far'), { file: 'j.json', why: 'a', as: 'far' });
+  assert.deepEqual(input('wire', '--why', 'a'), { why: 'a' });
+  assert.deepEqual(input('gate'), {});
+  assert.deepEqual(input('gate', 'wait', '--idle', '60', '--max-min', '5'), { action: 'wait', idle: 60, 'max-min': 5 });
+  assert.deepEqual(input('agent', 'install', '--from', '/x', '--force'), { action: 'install', from: '/x', force: true });
+  assert.deepEqual(input('agent', 'build', '--developer-id', '--notarize'), { action: 'build', 'developer-id': true, notarize: true });
+  assert.deepEqual(input('agent', 'grant', '--person-here'), { action: 'grant', 'person-here': true });
+  assert.deepEqual(input('doctor'), {});
+});
+
+test('a command other people see needs --why, and a read does not', async () => {
+  assert.equal(await main(['do', 'click']), 2);
+  assert.equal(await main(['wire']), 2);
+  assert.equal(parse(cli, ['do', 'click', '--why', 'Jo asked']).input.why, 'Jo asked');
+});
+
+test('edit, delete and remove answer with the commands to run instead', async () => {
+  for (const verb of ['edit', 'delete', 'remove']) assert.equal(await main([verb]), 2);
 });
 
 test('--via forwards the person\'s --why to the other Mac\'s wire, quoted for the shell', async () => {
