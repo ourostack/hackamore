@@ -92,16 +92,46 @@ export function notaryAuth(env = process.env) {
   return null;
 }
 
-export function notarize(app, { run = sh, env = process.env } = {}) {
+const RETRIES = 3;
+const BACKOFF_MS = [5000, 15000, 45000];
+const AUTH_FAILURE = /\b(401|403)\b|unauthori[sz]ed|invalid credentials|not authorized/i;
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+export function notarize(app, { run = sh, env = process.env, sleep = sleepSync } = {}) {
   const auth = notaryAuth(env);
   if (!auth) throw new Error('notarization needs APPLE_API_KEY_PATH, APPLE_API_KEY_ID and APPLE_API_ISSUER, or APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID, in the environment');
   const zip = `${app}.zip`;
   const z = run('/usr/bin/ditto', ['-c', '-k', '--keepParent', app, zip]);
   if (z.status !== 0) throw new Error(`ditto: ${String(z.stderr).slice(0, 300)}`);
-  const n = run('/usr/bin/xcrun', ['notarytool', 'submit', zip, ...auth, '--wait', '--output-format', 'json'], { timeout: 1800000 });
-  let j = {};
-  try { j = JSON.parse(n.stdout); } catch { /* reported below */ }
-  if (j.status !== 'Accepted') throw new Error(`notarization ${j.status || 'failed'}: ${String(n.stderr || n.stdout).slice(0, 400)}`);
+  const tries = 1 + RETRIES;
+  let j = {}, n = {}, last = '';
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    n = run('/usr/bin/xcrun', ['notarytool', 'submit', zip, ...auth, '--wait', '--output-format', 'json'], { timeout: 1800000 });
+    j = {};
+    try { j = JSON.parse(n.stdout); } catch { /* no verdict: handled below */ }
+    if (j.status) break;
+    const text = String(n.stderr || n.stdout || '').trim();
+    last = `attempt ${attempt}/${tries}: exit ${n.status ?? 'none'}${n.signal ? ` (${n.signal})` : ''}, ${text ? text.slice(0, 300) : 'no output'}`;
+    if (AUTH_FAILURE.test(text) || attempt === tries) break;
+    sleep(BACKOFF_MS[attempt - 1] ?? 45000);
+  }
+  if (j.status !== 'Accepted') {
+    const text = String(n.stderr || n.stdout || '').trim().slice(0, 600);
+    if (!j.status) {
+      const auth401 = AUTH_FAILURE.test(text);
+      throw new Error(`notarization got no verdict from Apple (notarytool exit ${n.status ?? 'none'}${n.signal ? `, ${n.signal}` : ''}; stderr/stdout: ${text || 'empty'}; submission id: ${j.id || 'none'}). `
+        + (auth401 ? 'Apple refused the credentials, so it was not retried. Fix: check APPLE_API_KEY_ID, APPLE_API_ISSUER and the key (API_KEY_P8) are current. '
+          : `That is usually a dropped network, a timeout or an Apple 5xx; it was tried ${tries} times (${last}). Fix: rerun the failed job; if it keeps failing, check https://developer.apple.com/system-status/. `)
+        + 'To look further, run `xcrun notarytool history` with the same credentials. To keep working, ship the signed, un-notarized build with `hackamore agent build --developer-id` (no --notarize).');
+    }
+    let log = '';
+    if (j.id) {
+      const l = run('/usr/bin/xcrun', ['notarytool', 'log', j.id, ...auth], { timeout: 120000 });
+      log = String(l.stdout || l.stderr || '').split('\n').filter((x) => x.trim()).slice(0, 25).join('\n').slice(0, 1500);
+    }
+    throw new Error(`notarization ${j.status} (submission id: ${j.id || 'none'}; notarytool exit ${n.status ?? 'none'}). Apple rejected the build, so it was not retried.`
+      + `${log ? `\nApple's log:\n${log}` : ''}\nTo look further: \`xcrun notarytool log ${j.id || '<id>'}\` with the same credentials. Fix: correct what the log names (usually signing options or an unsigned binary) and rebuild; \`hackamore agent build --developer-id\` builds without notarizing.`);
+  }
   const s = run('/usr/bin/xcrun', ['stapler', 'staple', app]);
   if (s.status !== 0) throw new Error(`stapler: ${String(s.stderr).slice(0, 300)}`);
   return { ok: true, id: j.id || null };
@@ -119,8 +149,14 @@ export function build({ out = DIST, developerId = 'auto', notarizeIt = false } =
   const id = developerId ? identity() : null;
   if (!id && developerId === true) throw new Error('Developer ID signing unavailable: no "Developer ID Application" identity in the keychain (HACKAMORE_SIGN_IDENTITY names one)');
   const kc = process.env.HACKAMORE_SIGNING_KEYCHAIN;
-  const s = sh('/usr/bin/codesign', ['--force', '--options', 'runtime', ...(id ? ['--timestamp', ...(kc ? ['--keychain', kc] : []), '--requirements', `=${REQUIREMENT}`] : []), '--identifier', LABEL, '-s', id || '-', app], { timeout: 120000 });
-  if (s.status !== 0 || s.signal) throw new Error(`codesign: ${s.signal ? `timed out (${s.signal})` : String(s.stderr).slice(0, 400)}`);
+  let s;
+  for (let attempt = 1; attempt <= 1 + RETRIES; attempt++) {
+    s = sh('/usr/bin/codesign', ['--force', '--options', 'runtime', ...(id ? ['--timestamp', ...(kc ? ['--keychain', kc] : []), '--requirements', `=${REQUIREMENT}`] : []), '--identifier', LABEL, '-s', id || '-', app], { timeout: 120000 });
+    // Apple's timestamp server being unreachable is transient; a bad identity or keychain is not.
+    if ((s.status === 0 && !s.signal) || !id || !/timestamp/i.test(String(s.stderr)) || attempt > RETRIES) break;
+    sleepSync(BACKOFF_MS[attempt - 1]);
+  }
+  if (s.status !== 0 || s.signal) throw new Error(`codesign: ${s.signal ? `timed out (${s.signal})` : String(s.stderr).slice(0, 400)}${/timestamp/i.test(String(s.stderr)) ? ' (Apple\'s timestamp server did not answer after 4 tries. Fix: rerun the job; to keep working, build ad-hoc with `hackamore agent build --ad-hoc`.)' : ''}`);
   if (notarizeIt) { if (!id) throw new Error('only a Developer ID build can be notarized'); notarize(app); }
   const cdhash = (String(sh('/usr/bin/codesign', ['-dvvv', app]).stderr).match(/CDHash=(\w+)/) || [])[1] || null;
   fs.mkdirSync(out, { recursive: true });
