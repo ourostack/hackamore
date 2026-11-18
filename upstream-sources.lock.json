@@ -4,7 +4,7 @@
     {
       "id": "ourostack-ouro-ui-ax",
       "repository": "ourostack/ouro-ui",
-      "commit": "7756b03e76b36f23e7ad9bd6ed741b5534e5b036",
+      "commit": "aafc8842888bcfc927095c4e9e348c74d8108096",
       "license": "MIT",
       "files": [
         {
@@ -25,7 +25,7 @@
         {
           "sourcePath": "registry/ouro/ax/cli.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/cli.ts",
-          "sha256": "ad1a7a04e77d407dba61279d0be810929559591ca6a9cb2e698077109c699e97"
+          "sha256": "1cbaf0a683321b6343c3f45a77934c138d8ea25eac36526d34d688b8ede36234"
         },
         {
           "sourcePath": "registry/ouro/ax/command.ts",
@@ -41,6 +41,11 @@
           "sourcePath": "registry/ouro/ax/dev-commands.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/dev-commands.ts",
           "sha256": "911d0d56d47f7feb0d64eb96367c29369bd82a7fa925568e8dacda7a4454e09f"
+        },
+        {
+          "sourcePath": "registry/ouro/ax/doctor.ts",
+          "generatedPath": "lib/ouro-ui/registry/ouro/ax/doctor.ts",
+          "sha256": "50f27db03682d620e2c78babc40e4ff9d62f731d07ab4eb52678a7c2ad8a4c9d"
         },
         {
           "sourcePath": "registry/ouro/ax/effects.ts",
