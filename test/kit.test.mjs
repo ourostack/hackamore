@@ -32,11 +32,23 @@ test('an unknown flag on a declared command is refused before anything runs', as
 
 const input = (...argv) => parse(cli, argv).input;
 
+test('optional words are positional: ls takes an app, do an input, gate and agent an action', () => {
+  assert.deepEqual(input('ls', 'Notes'), { app: 'Notes' });
+  assert.deepEqual(input('do', 'click', '{"a":1}', '--why', 'Jo asked'), { action: 'click', inputJson: '{"a":1}', why: 'Jo asked' });
+  assert.deepEqual(input('do', 'click', '--why', 'Jo asked'), { action: 'click', why: 'Jo asked' });
+  assert.deepEqual(input('gate', 'wait'), { action: 'wait' });
+  assert.deepEqual(input('agent', 'grant'), { action: 'grant' });
+  // The word is no longer a flag: --app and --input-json are refused, and a word spelt as a flag gets the word as its fix.
+  assert.throws(() => input('ls', '--app', 'Notes'), /there is no --app/);
+  assert.throws(() => input('do', 'click', '--why', 'Jo asked', '--input-json', '{}'), /there is no --input-json/);
+  assert.throws(() => input('agent', '--install'), /"install" is a word for <action>/);
+});
+
 test('every command parses its words and flags into the input the dispatcher reads', () => {
   assert.deepEqual(input('ls'), {});
   assert.deepEqual(input('ls', 'Finder', '--layer', 'pixels', '--no-menus', '--diff', '--as', 'far'), { app: 'Finder', layer: 'pixels', 'no-menus': true, diff: true, as: 'far' });
   assert.deepEqual(input('do', 'click', '{"a":1}', '--why', 'Jo asked', '--app', 'Finder', '--idle', '5', '--record', 'j.json', '--diff', '--via', 'ssh mini hackamore wire', '--kvm', 'mini'),
-    { action: 'click', input: '{"a":1}', why: 'Jo asked', app: 'Finder', idle: 5, record: 'j.json', diff: true, via: 'ssh mini hackamore wire', kvm: 'mini' });
+    { action: 'click', inputJson: '{"a":1}', why: 'Jo asked', app: 'Finder', idle: 5, record: 'j.json', diff: true, via: 'ssh mini hackamore wire', kvm: 'mini' });
   assert.deepEqual(input('batch', '[]', '--why', 'a', '--app', 'Mail', '--idle', '0', '--record', 'b.json', '--diff'), { steps: '[]', why: 'a', app: 'Mail', idle: 0, record: 'b.json', diff: true });
   assert.deepEqual(input('journey', 'j.json', '--why', 'a', '--as', 'far'), { file: 'j.json', why: 'a', as: 'far' });
   assert.deepEqual(input('wire', '--why', 'a'), { why: 'a' });

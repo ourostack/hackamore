@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.6",
+  "generator": "ouro-actions 0.17.7",
   "set": "hackamore",
   "tool": "hackamore",
   "commands": [
@@ -8,11 +8,13 @@
       "summary": "Read the screen of the front app, or of the named app, and the actions it accepts. Read-only.",
       "effect": "private",
       "readOnly": true,
-      "flags": {
-        "app": {
-          "type": "string",
+      "args": [
+        {
+          "name": "app",
           "description": "The app to read. Defaults to the front app."
-        },
+        }
+      ],
+      "flags": {
         "layer": {
           "type": "enum",
           "description": "Which layer reads the screen: auto, the accessibility tree (ax) or pixels.",
@@ -38,6 +40,20 @@
       "summary": "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
       "effect": "private",
       "readOnly": true,
+      "args": [
+        {
+          "name": "action",
+          "description": "check (the default), wait, init, pre, post or show.",
+          "values": [
+            "check",
+            "wait",
+            "init",
+            "pre",
+            "post",
+            "show"
+          ]
+        }
+      ],
       "flags": {
         "idle": {
           "type": "number",
@@ -68,13 +84,13 @@
           "name": "action",
           "description": "The action to run, as ls lists it.",
           "required": true
+        },
+        {
+          "name": "inputJson",
+          "description": "The action's input as a JSON object."
         }
       ],
       "flags": {
-        "input-json": {
-          "type": "string",
-          "description": "The action's input as a JSON object."
-        },
         "app": {
           "type": "string",
           "description": "The app to act on. Defaults to the front app."
@@ -144,6 +160,18 @@
       "name": "agent",
       "summary": "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
       "effect": "private",
+      "args": [
+        {
+          "name": "action",
+          "description": "status (the default), install, build or grant.",
+          "values": [
+            "status",
+            "install",
+            "build",
+            "grant"
+          ]
+        }
+      ],
       "flags": {
         "from": {
           "type": "string",

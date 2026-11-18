@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.6",
+  "generator": "ouro-actions 0.17.7",
   "set": "hackamore",
   "tools": [
     {
@@ -60,6 +60,18 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "action": {
+            "type": "string",
+            "description": "check (the default), wait, init, pre, post or show.",
+            "enum": [
+              "check",
+              "wait",
+              "init",
+              "pre",
+              "post",
+              "show"
+            ]
+          },
           "idle": {
             "type": "number",
             "description": "How long nobody must have used the Mac. Defaults to 90.",
@@ -280,6 +292,16 @@
       "inputSchema": {
         "type": "object",
         "properties": {
+          "action": {
+            "type": "string",
+            "description": "status (the default), install, build or grant.",
+            "enum": [
+              "status",
+              "install",
+              "build",
+              "grant"
+            ]
+          },
           "from": {
             "type": "string",
             "description": "With install: the folder to install from."

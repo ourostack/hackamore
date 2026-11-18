@@ -114,7 +114,7 @@ test('cmdUiReins: ls, do and --record go through the transport, and a refusal ke
   assert.equal(sent[0].host, 'far');
   assert.equal(out[0].timing.via, 'fake');
   const f = path.join(dir, 'j.json');
-  assert.equal(await A.cmdUiReins('do', { action: 'click', input: '{"element":"#0"}', as: 'far', record: f }, { transport, print }), 0);
+  assert.equal(await A.cmdUiReins('do', { action: 'click', inputJson: '{"element":"#0"}', as: 'far', record: f }, { transport, print }), 0);
   assert.equal(JSON.parse(fs.readFileSync(f, 'utf8'))[0].action, 'click');
   assert.equal(await A.cmdUiReins('do', { action: 'nope', as: 'far' }, { transport, print }), 2);
   assert.equal(out.at(-1).error.code, 'action-unavailable');
