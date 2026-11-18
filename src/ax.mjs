@@ -1267,10 +1267,10 @@ export function recordStep(file, step) {
   return { file, steps: steps.length };
 }
 
-// `input` is what the kit parsed for the command (src/kit.mjs): ls's app, do's action and input, batch's steps, and the flags.
+// `input` is what the kit parsed for the command (src/kit.mjs): ls's app, do's action and inputJson, batch's steps, and the flags.
 export async function cmdUiReins(sub, input, deps = {}) {
   const p = { record: input.record ?? null, layer: input.layer ?? 'auto', idle: input.idle ?? 90, app: sub === 'ls' ? null : input.app ?? null, via: input.via ?? null, as: input.as ?? null, kvm: input.kvm ?? null, why: input.why ?? null, menus: input['no-menus'] !== true, diff: input.diff === true };
-  const [a1, a2] = sub === 'ls' ? [input.app] : sub === 'do' ? [input.action, input.input] : [input.steps];
+  const [a1, a2] = sub === 'ls' ? [input.app] : sub === 'do' ? [input.action, input.inputJson] : [input.steps];
   const t0 = Date.now();
   const transport = deps.transport || (p.via ? commandTransport(p.via, { why: p.why }) : localTransport);
   const host = p.as || (p.via ? `via-${createHash('sha256').update(p.via).digest('hex').slice(0, 8)}` : 'local');

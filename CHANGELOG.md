@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Optional words are declared in `actions/hackamore.actions.mts` and generated (ouro-actions v0.17.7): `ls [<app>]`, `gate [<action>]` (check, wait, init, pre, post, show) and `agent [<action>]` (status, install, build, grant). The kit no longer patches words in.
+- Breaking for library users: `do`'s JSON input is the word `inputJson` (it was the word `input`, shown as `[<input>]`), so `cmdUiReins('do', …)` reads `inputJson`. The generator reserves `input` as an App Intent member name, so the field can't keep that name. An unknown flag spelt as a word (`agent --install`) names the word as its fix.
 - Every command is declared in `actions/hackamore.actions.mts` (now including `agent` and `wire`), and the kit parses every command line. The legacy dispatch table, the pass-through dispatcher and `parseUiArgs` are gone. Flags and exit codes are unchanged.
 - Breaking for library users: `cmdUiReins(sub, input, deps)` takes the parsed input object, not an argv array. `help --json` has the kit's shape and no longer carries `exit_codes` (use `exitCodes`).
 - A failed `ls`, `do` or `batch` reply also writes its problem and fix on stderr.

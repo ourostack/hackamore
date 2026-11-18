@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.6",
+  "generator": "ouro-actions 0.17.7",
   "set": "hackamore",
   "tool": "hackamore",
   "actions": [
@@ -14,6 +14,7 @@
           "label": "App",
           "description": "The app to read. Defaults to the front app.",
           "optional": true,
+          "arg": true,
           "kind": "string"
         },
         "layer": {
@@ -56,6 +57,21 @@
       "description": "Check whether an agent may touch this screen now: unlocked, and nobody has used it for the idle time.",
       "agent": "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
       "input": {
+        "action": {
+          "label": "Action",
+          "description": "check (the default), wait, init, pre, post or show.",
+          "optional": true,
+          "arg": true,
+          "values": [
+            "check",
+            "wait",
+            "init",
+            "pre",
+            "post",
+            "show"
+          ],
+          "kind": "enum"
+        },
         "idle": {
           "label": "Idle seconds",
           "description": "How long nobody must have used the Mac. Defaults to 90.",
@@ -118,6 +134,7 @@
           "label": "Input",
           "description": "The action's input as a JSON object.",
           "optional": true,
+          "arg": true,
           "kind": "string"
         },
         "app": {
@@ -233,6 +250,19 @@
       "description": "Say whether the resident Ouro Reins Agent that holds the Accessibility grant is running; with a word, build it, install it, or raise the grant dialog (only with a person at the Mac).",
       "agent": "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
       "input": {
+        "action": {
+          "label": "Action",
+          "description": "status (the default), install, build or grant.",
+          "optional": true,
+          "arg": true,
+          "values": [
+            "status",
+            "install",
+            "build",
+            "grant"
+          ],
+          "kind": "enum"
+        },
         "from": {
           "label": "From",
           "description": "With install: the folder to install from.",
