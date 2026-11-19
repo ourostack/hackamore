@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.7",
+  "generator": "ouro-actions 0.20.0",
   "set": "hackamore",
   "tool": "hackamore",
   "commands": [
@@ -22,7 +22,8 @@
             "auto",
             "ax",
             "pixels"
-          ]
+          ],
+          "default": "auto"
         },
         "no-menus": {
           "type": "boolean",
@@ -43,7 +44,7 @@
       "args": [
         {
           "name": "action",
-          "description": "check (the default), wait, init, pre, post or show.",
+          "description": "check, wait, init, pre, post or show.",
           "values": [
             "check",
             "wait",
@@ -51,19 +52,22 @@
             "pre",
             "post",
             "show"
-          ]
+          ],
+          "default": "check"
         }
       ],
       "flags": {
         "idle": {
           "type": "number",
-          "description": "How long nobody must have used the Mac. Defaults to 90.",
-          "min": 0
+          "description": "How long nobody must have used the Mac.",
+          "min": 0,
+          "default": 90
         },
         "max-min": {
           "type": "number",
           "description": "With wait: how many minutes to wait at most.",
-          "min": 0
+          "min": 0,
+          "default": 30
         }
       },
       "output": "{ open, why }"
@@ -98,7 +102,8 @@
         "idle": {
           "type": "number",
           "description": "Refuse unless nobody has used the Mac for this many seconds.",
-          "min": 0
+          "min": 0,
+          "default": 90
         },
         "record": {
           "type": "string",
@@ -130,7 +135,8 @@
         "idle": {
           "type": "number",
           "description": "Refuse unless nobody has used the Mac for this many seconds.",
-          "min": 0
+          "min": 0,
+          "default": 90
         },
         "record": {
           "type": "string",
@@ -163,13 +169,14 @@
       "args": [
         {
           "name": "action",
-          "description": "status (the default), install, build or grant.",
+          "description": "status, install, build or grant.",
           "values": [
             "status",
             "install",
             "build",
             "grant"
-          ]
+          ],
+          "default": "status"
         }
       ],
       "flags": {

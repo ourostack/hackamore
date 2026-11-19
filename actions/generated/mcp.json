@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.7",
+  "generator": "ouro-actions 0.20.0",
   "set": "hackamore",
   "tools": [
     {
@@ -20,7 +20,8 @@
               "auto",
               "ax",
               "pixels"
-            ]
+            ],
+            "default": "auto"
           },
           "noMenus": {
             "type": "boolean",
@@ -62,7 +63,7 @@
         "properties": {
           "action": {
             "type": "string",
-            "description": "check (the default), wait, init, pre, post or show.",
+            "description": "check, wait, init, pre, post or show.",
             "enum": [
               "check",
               "wait",
@@ -70,17 +71,20 @@
               "pre",
               "post",
               "show"
-            ]
+            ],
+            "default": "check"
           },
           "idle": {
             "type": "number",
-            "description": "How long nobody must have used the Mac. Defaults to 90.",
-            "minimum": 0
+            "description": "How long nobody must have used the Mac.",
+            "minimum": 0,
+            "default": 90
           },
           "maxMin": {
             "type": "number",
             "description": "With wait: how many minutes to wait at most.",
-            "minimum": 0
+            "minimum": 0,
+            "default": 30
           }
         },
         "required": [],
@@ -161,7 +165,8 @@
           "idle": {
             "type": "number",
             "description": "Refuse unless nobody has used the Mac for this many seconds.",
-            "minimum": 0
+            "minimum": 0,
+            "default": 90
           },
           "record": {
             "type": "string",
@@ -214,7 +219,8 @@
           "idle": {
             "type": "number",
             "description": "Refuse unless nobody has used the Mac for this many seconds.",
-            "minimum": 0
+            "minimum": 0,
+            "default": 90
           },
           "record": {
             "type": "string",
@@ -294,13 +300,14 @@
         "properties": {
           "action": {
             "type": "string",
-            "description": "status (the default), install, build or grant.",
+            "description": "status, install, build or grant.",
             "enum": [
               "status",
               "install",
               "build",
               "grant"
-            ]
+            ],
+            "default": "status"
           },
           "from": {
             "type": "string",
