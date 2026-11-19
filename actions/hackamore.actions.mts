@@ -11,7 +11,7 @@ export const screenRead = defineAction({
   agent: "Read the screen of the front app, or of the named app, and the actions it accepts. Read-only.",
   input: {
     app: field.string({ label: "App", description: "The app to read. Defaults to the front app.", optional: true, arg: true }),
-    layer: field.enum({ label: "Layer", description: "Which layer reads the screen: auto, the accessibility tree (ax) or pixels.", optional: true, values: ["auto", "ax", "pixels"] }),
+    layer: field.enum({ label: "Layer", description: "Which layer reads the screen: auto, the accessibility tree (ax) or pixels.", optional: true, values: ["auto", "ax", "pixels"], default: "auto" }),
     noMenus: field.boolean({ label: "No menus", description: "Leave out the menu bar.", optional: true }),
     diff: field.boolean({ label: "Diff", description: "Show only what changed since the last read.", optional: true }),
   },
@@ -28,9 +28,9 @@ export const gateCheck = defineAction({
   description: "Check whether an agent may touch this screen now: unlocked, and nobody has used it for the idle time.",
   agent: "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
   input: {
-    action: field.enum({ label: "Action", description: "check (the default), wait, init, pre, post or show.", optional: true, arg: true, values: ["check", "wait", "init", "pre", "post", "show"] }),
-    idle: field.number({ label: "Idle seconds", description: "How long nobody must have used the Mac. Defaults to 90.", optional: true, min: 0 }),
-    maxMin: field.number({ label: "Wait at most", description: "With wait: how many minutes to wait at most.", optional: true, min: 0 }),
+    action: field.enum({ label: "Action", description: "check, wait, init, pre, post or show.", optional: true, arg: true, values: ["check", "wait", "init", "pre", "post", "show"], default: "check" }),
+    idle: field.number({ label: "Idle seconds", description: "How long nobody must have used the Mac.", optional: true, min: 0, default: 90 }),
+    maxMin: field.number({ label: "Wait at most", description: "With wait: how many minutes to wait at most.", optional: true, min: 0, default: 30 }),
   },
   output: {
     open: field.boolean({ label: "Open", description: "True when an agent may touch the screen now." }),
@@ -62,7 +62,7 @@ export const doAction = defineAction({
     action: field.string({ label: "Action", description: "The action to run, as ls lists it.", arg: true }),
     inputJson: field.string({ label: "Input", description: "The action's input as a JSON object.", optional: true, arg: true }),
     app: field.string({ label: "App", description: "The app to act on. Defaults to the front app.", optional: true }),
-    idle: field.number({ label: "Idle seconds", description: "Refuse unless nobody has used the Mac for this many seconds.", optional: true, min: 0 }),
+    idle: field.number({ label: "Idle seconds", description: "Refuse unless nobody has used the Mac for this many seconds.", optional: true, min: 0, default: 90 }),
     record: field.string({ label: "Record to", description: "Write the step to this file, for a journey.", optional: true }),
     diff: field.boolean({ label: "Diff", description: "Show only what changed after the action.", optional: true }),
   },
@@ -81,7 +81,7 @@ export const batchAction = defineAction({
   input: {
     steps: field.string({ label: "Steps", description: "A JSON array of {action, input, until?, app?} steps.", arg: true }),
     app: field.string({ label: "App", description: "The app to act on by default.", optional: true }),
-    idle: field.number({ label: "Idle seconds", description: "Refuse unless nobody has used the Mac for this many seconds.", optional: true, min: 0 }),
+    idle: field.number({ label: "Idle seconds", description: "Refuse unless nobody has used the Mac for this many seconds.", optional: true, min: 0, default: 90 }),
     record: field.string({ label: "Record to", description: "Write the steps to this file, for a journey.", optional: true }),
     diff: field.boolean({ label: "Diff", description: "Show only what changed after the last step.", optional: true }),
   },
@@ -113,7 +113,7 @@ export const agentAction = defineAction({
   description: "Say whether the resident Ouro Reins Agent that holds the Accessibility grant is running; with a word, build it, install it, or raise the grant dialog (only with a person at the Mac).",
   agent: "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
   input: {
-    action: field.enum({ label: "Action", description: "status (the default), install, build or grant.", optional: true, arg: true, values: ["status", "install", "build", "grant"] }),
+    action: field.enum({ label: "Action", description: "status, install, build or grant.", optional: true, arg: true, values: ["status", "install", "build", "grant"], default: "status" }),
     from: field.string({ label: "From", description: "With install: the folder to install from.", optional: true }),
     force: field.boolean({ label: "Force", description: "With install: replace what is installed.", optional: true }),
     developerId: field.boolean({ label: "Developer ID", description: "With build: sign with a Developer ID certificate.", optional: true }),

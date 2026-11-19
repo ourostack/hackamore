@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.17.7",
+  "generator": "ouro-actions 0.20.0",
   "set": "hackamore",
   "tool": "hackamore",
   "actions": [
@@ -26,6 +26,7 @@
             "ax",
             "pixels"
           ],
+          "default": "auto",
           "kind": "enum"
         },
         "noMenus": {
@@ -59,7 +60,7 @@
       "input": {
         "action": {
           "label": "Action",
-          "description": "check (the default), wait, init, pre, post or show.",
+          "description": "check, wait, init, pre, post or show.",
           "optional": true,
           "arg": true,
           "values": [
@@ -70,13 +71,15 @@
             "post",
             "show"
           ],
+          "default": "check",
           "kind": "enum"
         },
         "idle": {
           "label": "Idle seconds",
-          "description": "How long nobody must have used the Mac. Defaults to 90.",
+          "description": "How long nobody must have used the Mac.",
           "optional": true,
           "min": 0,
+          "default": 90,
           "kind": "number"
         },
         "maxMin": {
@@ -84,6 +87,7 @@
           "description": "With wait: how many minutes to wait at most.",
           "optional": true,
           "min": 0,
+          "default": 30,
           "kind": "number"
         }
       },
@@ -148,6 +152,7 @@
           "description": "Refuse unless nobody has used the Mac for this many seconds.",
           "optional": true,
           "min": 0,
+          "default": 90,
           "kind": "number"
         },
         "record": {
@@ -196,6 +201,7 @@
           "description": "Refuse unless nobody has used the Mac for this many seconds.",
           "optional": true,
           "min": 0,
+          "default": 90,
           "kind": "number"
         },
         "record": {
@@ -252,7 +258,7 @@
       "input": {
         "action": {
           "label": "Action",
-          "description": "status (the default), install, build or grant.",
+          "description": "status, install, build or grant.",
           "optional": true,
           "arg": true,
           "values": [
@@ -261,6 +267,7 @@
             "build",
             "grant"
           ],
+          "default": "status",
           "kind": "enum"
         },
         "from": {
