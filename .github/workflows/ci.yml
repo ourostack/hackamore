@@ -11,6 +11,8 @@ concurrency:
 jobs:
   node:
     name: node ${{ matrix.node }} on macOS
+    # Not on a pull request: macOS runners are scarce, so a PR never waits for one. It runs on main after the merge, and a red run on main is the red-main alarm.
+    if: github.event_name != 'pull_request'
     runs-on: macos-latest
     timeout-minutes: 15
     strategy:
@@ -42,4 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - run: test "${{ needs.node.result }}" = success && test "${{ needs.portable.result }}" = success
+      # The macOS job runs only on main, after the merge; a pull request is judged by the Linux job alone.
+      - env:
+          EVENT: ${{ github.event_name }}
+          NODE: ${{ needs.node.result }}
+          PORTABLE: ${{ needs.portable.result }}
+        run: |
+          test "$PORTABLE" = success
+          if [ "$EVENT" = pull_request ]; then test "$NODE" = skipped; else test "$NODE" = success; fi
