@@ -4,7 +4,7 @@
     {
       "id": "ourostack-ouro-ui-ax",
       "repository": "ourostack/ouro-ui",
-      "commit": "f4f1547392d1cac93ece5c02cc6993099a3dbb72",
+      "commit": "9bf004237c7efd6ad4737a42d9d129be3a233f44",
       "license": "MIT",
       "files": [
         {
@@ -100,7 +100,7 @@
         {
           "sourcePath": "registry/ouro/ax/precise-copy.ts",
           "generatedPath": "lib/ouro-ui/registry/ouro/ax/precise-copy.ts",
-          "sha256": "d93b0f3dc86634e3432b81f8709d1f0ce42e1c63a1554c059ae285f46792edee"
+          "sha256": "97695b01e20f4278a31238f2ea8cf28f9e9adc5bbdd91018c39a76a3a8df089e"
         },
         {
           "sourcePath": "registry/ouro/ax/problem.ts",
