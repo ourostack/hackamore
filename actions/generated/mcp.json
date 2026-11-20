@@ -1,5 +1,5 @@
 {
-  "generator": "ouro-actions 0.20.0",
+  "generator": "ouro-actions 1.4.1",
   "set": "hackamore",
   "tools": [
     {
@@ -187,6 +187,9 @@
         "destructiveHint": true,
         "openWorldHint": true
       },
+      "_meta": {
+        "ouro.bot/confirm": "Run one action (click, set_value, type_text, press_key, menu, scroll, perform, open_app, activate) on an app and get the screen after it."
+      },
       "outputSchema": {
         "type": "object",
         "properties": {
@@ -241,6 +244,9 @@
         "destructiveHint": true,
         "openWorldHint": true
       },
+      "_meta": {
+        "ouro.bot/confirm": "Run many steps on an app in one call; the run stops at the first refusal or unmet check."
+      },
       "outputSchema": {
         "type": "object",
         "properties": {
@@ -276,6 +282,9 @@
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": true
+      },
+      "_meta": {
+        "ouro.bot/confirm": "Replay a journey recorded with --record as one batch."
       },
       "outputSchema": {
         "type": "object",
@@ -370,6 +379,9 @@
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": true
+      },
+      "_meta": {
+        "ouro.bot/confirm": "Serve one request: read a JSON line from stdin and print the reply line. This is what --via runs on the other Mac."
       },
       "outputSchema": {
         "type": "object",
