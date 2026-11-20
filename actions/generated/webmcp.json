@@ -1,9 +1,10 @@
 {
-  "generator": "ouro-actions 0.20.0",
+  "generator": "ouro-actions 1.4.1",
   "set": "hackamore",
   "tools": [
     {
       "name": "ls",
+      "title": "Read the screen",
       "description": "Read the screen of the front app, or of the named app, and the actions it accepts. Read-only.",
       "inputSchema": {
         "type": "object",
@@ -41,6 +42,7 @@
     },
     {
       "name": "gate_check",
+      "title": "Check the gate",
       "description": "Say whether the screen is open to an agent right now, and why not if it is not. Read-only.",
       "inputSchema": {
         "type": "object",
@@ -81,6 +83,7 @@
     },
     {
       "name": "doctor",
+      "title": "Check this Mac",
       "description": "Report what this Mac has for hackamore and the next step if something is missing. Read-only.",
       "inputSchema": {
         "type": "object",
@@ -95,6 +98,7 @@
     },
     {
       "name": "do",
+      "title": "Run one action on an app",
       "description": "Run one action on an app on this Mac, which other people may see, and read the screen after it. A person says yes first.",
       "inputSchema": {
         "type": "object",
@@ -134,10 +138,14 @@
       "annotations": {
         "readOnlyHint": false,
         "consequentialHint": true
+      },
+      "_meta": {
+        "ouro.bot/confirm": "Run one action (click, set_value, type_text, press_key, menu, scroll, perform, open_app, activate) on an app and get the screen after it."
       }
     },
     {
       "name": "batch",
+      "title": "Run many actions on an app",
       "description": "Run a list of steps on an app on this Mac, which other people may see. A person says yes first.",
       "inputSchema": {
         "type": "object",
@@ -173,10 +181,14 @@
       "annotations": {
         "readOnlyHint": false,
         "consequentialHint": true
+      },
+      "_meta": {
+        "ouro.bot/confirm": "Run many steps on an app in one call; the run stops at the first refusal or unmet check."
       }
     },
     {
       "name": "journey",
+      "title": "Replay a recorded journey",
       "description": "Replay a recorded journey of steps on an app on this Mac, which other people may see. A person says yes first.",
       "inputSchema": {
         "type": "object",
@@ -194,10 +206,14 @@
       "annotations": {
         "readOnlyHint": false,
         "consequentialHint": true
+      },
+      "_meta": {
+        "ouro.bot/confirm": "Replay a journey recorded with --record as one batch."
       }
     },
     {
       "name": "agent",
+      "title": "Look after the resident agent",
       "description": "Say whether the resident Ouro Reins Agent is running; install and build change only this Mac, and grant needs a person at it.",
       "inputSchema": {
         "type": "object",
@@ -248,6 +264,7 @@
     },
     {
       "name": "wire",
+      "title": "Serve one request for another Mac",
       "description": "Serve one JSON request line from stdin for another Mac that drives this one with --via, which other people may see. A person says yes first.",
       "inputSchema": {
         "type": "object",
@@ -258,6 +275,9 @@
       "annotations": {
         "readOnlyHint": false,
         "consequentialHint": true
+      },
+      "_meta": {
+        "ouro.bot/confirm": "Serve one request: read a JSON line from stdin and print the reply line. This is what --via runs on the other Mac."
       }
     }
   ],
