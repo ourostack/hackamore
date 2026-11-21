@@ -2,7 +2,7 @@
 // dry run plans without sending, and a --via Mac gets the person's --why with its request.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from '../lib/ouro-ui/registry/ouro/ax/command.ts';
+import { parse } from '../lib/ouro-ui/registry/ouro/ax/ax-command.ts';
 import { cli } from '../src/kit.mjs';
 import { main } from '../src/cli.mjs';
 import { commandTransport } from '../src/ax.mjs';

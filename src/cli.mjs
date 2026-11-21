@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import * as A from './ax.mjs';
 import * as G from './gate.mjs';
 import { cli, COMMAND_NAMES, planOutcome } from './kit.mjs';
-import { parse } from '../lib/ouro-ui/registry/ouro/ax/command.ts';
+import { parse } from '../lib/ouro-ui/registry/ouro/ax/ax-command.ts';
 import { runCli } from '../lib/ouro-ui/registry/ouro/ax/cli.ts';
 import { isAxError } from '../lib/ouro-ui/registry/ouro/ax/problem.ts';
 import { outcome, outcomeText } from '../lib/ouro-ui/registry/ouro/ax/outcome.ts';
