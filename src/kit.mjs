@@ -2,7 +2,7 @@
 // actions/generated/commands.json, which carries the words a command takes (optional ones too). The kit's parse does the
 // rest: the words and flags a command takes, the --why an action other people see needs, and the one-line refusals.
 import { readFileSync } from 'node:fs';
-import { defineCli, defineCommand } from '../lib/ouro-ui/registry/ouro/ax/command.ts';
+import { defineCli, defineCommand } from '../lib/ouro-ui/registry/ouro/ax/ax-command.ts';
 import { outcome } from '../lib/ouro-ui/registry/ouro/ax/outcome.ts';
 
 const declared = JSON.parse(readFileSync(new URL('../actions/generated/commands.json', import.meta.url), 'utf8')).commands;
