@@ -6,6 +6,8 @@
 
 # hackamore
 
+Part of [Ouro UI](https://ui.ouroboros.bot/): reins for apps that never had any.
+
 **Drive any Mac app like an API: its screen as state, its controls as actions, refusals before anything moves. For agents, with no model in the loop.**
 
 **Status:** experimental. The engine ran live on our Mac mini and laptop (Finder, System Settings, Calculator through the accessibility tree; dialogs and the lock screen through a KVM's pixels). The tests here use fakes and compile the real Swift engine; [What's verified](#whats-verified) says which is which. Releases are signed and notarized from v0.1.2: see [Signing](#signing).
