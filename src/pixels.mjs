@@ -199,7 +199,7 @@ export async function pixelDo(action, input = {}, { driver, ocr, host, idleMin =
         await driver.type(input.text, { expect: { app: input.expect_app } }); return { ok: true };
       case 'type_secret': {
         if (!secrets.includes(input.keychain_item) || !secret) return { ok: false, error: 'not-allowed' };
-        const s = await secret(input.keychain_item);
+        const s = await secret(input.keychain_item, { account: input.keychain_account ?? null });
         if (s == null) return { ok: false, error: 'no-keychain-item' };
         if (!driver.typeSecret) return { ok: false, error: 'this pixel driver has no secret path' };
         // Only into a screen that is asking for a password (the caller verifies which field on the picture first).

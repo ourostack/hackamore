@@ -373,8 +373,26 @@ test('a scoped secret reaches the accessibility layer, never a KVM\'s pixel laye
     assert.deepEqual(U.secretsFor().sort(), ['plain', 'vault-pw']);
     assert.deepEqual(U.pixelSecretsFor(), ['plain']);
   } finally { if (was == null) delete process.env.HACKAMORE_CONFIG_JSON; else process.env.HACKAMORE_CONFIG_JSON = was; }
-  const ui = fs.readFileSync(path.join(SRC, 'ax.mjs'), 'utf8');
-  assert.match(ui, /'find-generic-password', '-s', rule\.service, \.\.\.\(rule\.account \? \['-a', rule\.account\] : \[\]\), '-w'/);
+  const rules = [{ item: 'vault-pw', service: 'svc', account: 'acct' }];
+  assert.deepEqual(U.keychainArgs('vault-pw', { rules }), ['find-generic-password', '-s', 'svc', '-a', 'acct', '-w']);
+  assert.deepEqual(U.keychainArgs('vault-pw', { rules, account: 'acct' }), ['find-generic-password', '-s', 'svc', '-a', 'acct', '-w']);
+});
+
+test('type_secret takes keychain_account to pick one of several accounts a service holds; a rule\'s pinned account can\'t be swapped', async () => {
+  assert.deepEqual(U.keychainArgs('shared', { rules: [] }), ['find-generic-password', '-s', 'shared', '-w']);
+  assert.deepEqual(U.keychainArgs('shared', { rules: [], account: 'adele@example.test' }), ['find-generic-password', '-s', 'shared', '-a', 'adele@example.test', '-w']);
+  const w = world();
+  w.opts.cache.secrets = ['shared'];
+  const asked = [];
+  const r = await U.act('type_secret', { keychain_item: 'shared', keychain_account: 'adele@example.test', element: 'securetextfield[Password]' }, { ...w.opts, secretRules: [], secret: async (k, o) => { asked.push([k, o.account]); return 's3cret'; } });
+  assert.equal(r.code, 0, JSON.stringify(r.reply));
+  assert.deepEqual(asked, [['shared', 'adele@example.test']]);
+  assert.ok(!JSON.stringify(r.reply).includes('s3cret'));
+  const w2 = world();
+  w2.opts.cache.secrets = ['vault-pw'];
+  const pinned = await U.act('type_secret', { keychain_item: 'vault-pw', keychain_account: 'someone-else', element: 'securetextfield[Password]' }, { ...w2.opts, secretRules: [RULE], secret: async () => assert.fail('the Keychain is not read') });
+  assert.equal(pinned.reply.refused, 'input-invalid');
+  assert.match(pinned.reply.message, /pinned/);
 });
 
 test('settle: one read when nothing changed after the quiet time, a confirming read when it did', async () => {
@@ -595,7 +613,7 @@ test('rules: the UI modules use no LAN address, mDNS name or SSH, and never pass
   const agent = fs.readFileSync(path.join(SRC, 'agent.mjs'), 'utf8');
   assert.match(agent, /if \(!personHere\) return \{ ok: false, state: 'needs-person'/);
   const ui = fs.readFileSync(path.join(SRC, 'ax.mjs'), 'utf8');
-  assert.match(ui, /'find-generic-password', '-s', item, '-w'/, 'secrets come from the Keychain by item name');
+  assert.match(ui, /'find-generic-password', '-s', rule \? rule\.service : item/, 'secrets come from the Keychain by item name');
 });
 
 test('agent: grant needs a person; plists name the signed app, its socket and its stable identifier', async () => {
@@ -778,6 +796,11 @@ test('pixels: type_secret reads the allowed Keychain item on the controller and 
   let r = await P.pixelDo('type_secret', { keychain_item: 'mini-pw', expect_app: 'SecurityAgent' }, { gateIO: memIO(), driver: d, ocr: fakeOcr(sheet), host: 'm', gateFor, focusFor: FOCUS_FINDER, settleMs: 0, secrets: ['mini-pw'], secret, focusFor: FOCUS_SHEET });
   assert.equal(r.code, 0, JSON.stringify(r.reply));
   assert.deepEqual(d.calls, [['typeSecret', 12]], 'typed through the secret path, never type()');
+  const byAccount = [];
+  r = await P.pixelDo('type_secret', { keychain_item: 'mini-pw', keychain_account: 'adele', expect_app: 'SecurityAgent' }, { gateIO: memIO(), driver: d, ocr: fakeOcr(sheet), host: 'm', gateFor, settleMs: 0, secrets: ['mini-pw'], secret: async (item, o) => { byAccount.push(o.account); return 's3cret-value'; }, focusFor: FOCUS_SHEET });
+  assert.equal(r.code, 0, JSON.stringify(r.reply));
+  assert.deepEqual(byAccount, ['adele'], 'keychain_account reaches the controller\'s Keychain lookup');
+  d.calls.length = 1;
   r = await P.pixelDo('type_secret', { keychain_item: 'other', expect_app: 'SecurityAgent' }, { gateIO: memIO(), driver: d, ocr: fakeOcr(sheet), host: 'm', gateFor, focusFor: FOCUS_FINDER, settleMs: 0, secrets: ['mini-pw'], secret, focusFor: FOCUS_SHEET });
   assert.equal(r.reply.refused, 'input-invalid', 'only the items the config allows are offered');
   r = await P.pixelDo('type_secret', { keychain_item: 'mini-pw', expect_app: 'SecurityAgent' }, { gateIO: memIO(), driver: d, ocr: fakeOcr(), host: 'm', gateFor, focusFor: FOCUS_FINDER, settleMs: 0, secrets: ['mini-pw'], secret, focusFor: FOCUS_SHEET });
