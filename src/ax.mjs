@@ -407,7 +407,7 @@ export function uiScreen({ host, layer = 'ax', front = null, target = null, wind
   if (drivable && !(prot && prot.read === false)) {
     add('type_text', obj({ text: { type: 'string', minLength: 1 }, element: { type: 'string', enum: enumOf('type_text') }, ...appScope }, ['text']), 'type into the focused field, or into `element` after focusing it (never a password: see type_secret)');
     add('press_key', obj({ key: { type: 'string', pattern: KEY_PATTERN }, ...appScope }, ['key']), 'one key or combination, e.g. "cmd+w", "return", "shift+tab"');
-    if (secrets.length) add('type_secret', obj({ keychain_item: { type: 'string', enum: secrets }, element: { type: 'string', enum: enumOf('type_secret') } }, ['keychain_item']), 'type a secret read on that Mac from its Keychain by item name (named in the owner\'s config); the value never leaves that Mac');
+    if (secrets.length) add('type_secret', obj({ keychain_item: { type: 'string', enum: secrets }, keychain_account: { type: 'string', minLength: 1, maxLength: 256 }, element: { type: 'string', enum: enumOf('type_secret') } }, ['keychain_item']), 'type a secret read on that Mac from its Keychain by item name (named in the owner\'s config), and by `keychain_account` where one service holds several accounts; the value never leaves that Mac');
   }
   if (drivable && menus.length) add('menu', obj({ item: { type: 'string', enum: menus }, ...appScope }, ['item']), 'choose a menu-bar item (Menu > Item) without opening the menu');
   if (layer !== 'none') {
@@ -729,10 +729,21 @@ export async function gated(fn, { idleMin = 90, read, io, ours = null, backgroun
   return { r };
 }
 
-function keychainSecret(item, rules = secretRulesFor()) {
+// The Keychain lookup for an item: its rule's service and account, else the item name as the service. `account` picks
+// one of several accounts a service holds; a rule's own account can't be swapped for another (secretAccountRefusal).
+export function keychainArgs(item, { account = null, rules = secretRulesFor() } = {}) {
   const rule = rules.find((r) => r.item === item);
+  const acct = rule?.account || account || null;
+  return ['find-generic-password', '-s', rule ? rule.service : item, ...(acct ? ['-a', acct] : []), '-w'];
+}
+export function secretAccountRefusal(item, account, rules = secretRulesFor()) {
+  const rule = rules.find((r) => r.item === item);
+  return account && rule?.account && rule.account !== account ? `${item} is pinned to one Keychain account in the owner's config; keychain_account can't name another` : null;
+}
+
+function keychainSecret(item, { account = null, rules = secretRulesFor() } = {}) {
   return new Promise((resolve) => {
-    const args = rule ? ['find-generic-password', '-s', rule.service, ...(rule.account ? ['-a', rule.account] : []), '-w'] : ['find-generic-password', '-s', item, '-w'];
+    const args = keychainArgs(item, { account, rules });
     const p = spawn('/usr/bin/security', args, { stdio: ['ignore', 'pipe', 'ignore'] });
     let out = '';
     p.stdout.on('data', (b) => { out += b; });
@@ -839,7 +850,10 @@ export async function act(action, input = {}, opts = {}) {
     return refuse('app-protected', `${L.prot.app}: ${L.prot.why}`);
   }
   if (action === 'type_secret') {
-    const rule = (opts.secretRules ?? secretRulesFor()).find((r) => r.item === input.keychain_item);
+    const rules = opts.secretRules ?? secretRulesFor();
+    const pinned = secretAccountRefusal(input.keychain_item, input.keychain_account, rules);
+    if (pinned) return refuse('input-invalid', `$.keychain_account: ${pinned}`, { path: '$.keychain_account' });
+    const rule = rules.find((r) => r.item === input.keychain_item);
     const why = rule ? secretRuleVerdict(rule, L.view.state, el) : null;
     if (why) return refuse('app-protected', why);
   }
@@ -899,8 +913,8 @@ export async function act(action, input = {}, opts = {}) {
       }
       case 'type_secret': {
         if (!(L.base.secrets || []).includes(input.keychain_item)) return { ok: false, error: 'not-allowed' };
-        const s = await secret(input.keychain_item);
-        if (s == null) return { ok: false, error: 'no-keychain-item', message: `no Keychain item "${input.keychain_item}" on this Mac` };
+        const s = await secret(input.keychain_item, { account: input.keychain_account ?? null, ...(opts.secretRules ? { rules: opts.secretRules } : {}) });
+        if (s == null) return { ok: false, error: 'no-keychain-item', message: `no Keychain item "${input.keychain_item}"${input.keychain_account ? ` for account "${input.keychain_account}"` : ''} on this Mac` };
         if (el) await E.req('focus', { pid, path: el.at.p });
         const r = await E.req('type', { text: s }, 15000);
         return { ok: r.ok, error: r.error };

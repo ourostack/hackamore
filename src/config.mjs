@@ -2,7 +2,8 @@
 // names, or the JSON in HACKAMORE_CONFIG_JSON, which wins). Every field is optional:
 //   protected        [{ match: "<bundle id regex>", name, read: false|true, why }]  more apps agents must not drive
 //                    (read: true still lets `ls` read them); the defaults are in src/ax.mjs
-//   secrets          ["<Keychain item name>"]  what type_secret may read, on the Mac that types
+//   secrets          ["<Keychain item name>"]  what type_secret may read, on the Mac that types; the name is the
+//                    Keychain service, and type_secret's keychain_account picks one account where it holds several
 //   secret_rules     [{ item, service?, account?, app, text, window?, why }]  a secret that type_secret may type only into one
 //                    kind of dialog, on the accessibility layer only (never through a KVM): `app` is a bundle id regex the
 //                    dialog's app must match, `text` a regex some text in its window must match, `window` an optional regex
